@@ -39,7 +39,7 @@ from matplotlib.dates import HourLocator
 def BarPlotTime (dfUserMedians):
       n = len(dfUserMedians)
       ind = np.arange(n)  # the x locations for the groups
-      width = 0.4         # the width of the bars
+      width = 0.8         # the width of the bars
       
       myDay = datetime.date (2017,1,1)    # static date to assemble a datetime object for matplotlib barplot
       yTemp  = dfUserMedians[dfUserMedians.columns[0]].tolist()
@@ -50,11 +50,17 @@ def BarPlotTime (dfUserMedians):
       # MUST use matplotlib "numeric" dates
       ymDt  = [mdates.date2num(d) for d in y]
       y2mDt = [mdates.date2num(d) for d in y2]
-     
+      
+      for i in range(len(y)):
+          if yTemp[i] == tm(0,0,0) or yTemp2[i] == tm(0,0,0):
+              ymDt[i] = y2mDt[i] = 0
+          else:
+              y2mDt[i] -= ymDt[i]
+                  
       
       fig, ax = plt.subplots()
-      rects1 = ax.bar (ind, ymDt, width, color='r', label="Time In")
-      rects2 = ax.bar (ind + width, y2mDt, width, color='b', label="Time Out")
+#      rects1 = ax.bar (ind, ymDt, width, color='r', label="Time In")
+      rects2 = ax.bar (ind + width/2, y2mDt, width, bottom=ymDt, color='b', label="Time In/Out")
       
       # add some text for labels, title and axes ticks
       ax.set_ylabel('Time')
@@ -73,18 +79,26 @@ def BarPlotTime (dfUserMedians):
       #autolabel(rects1)
       #autolabel(rects2)
       
-      minYTime = datetime.datetime.combine (myDay, tm(0,0,0))
+      startHour = 7  # y min at 7am
+      minYTime = datetime.datetime.combine (myDay, tm(startHour,0,0))
       maxYTime = datetime.datetime.combine (myDay, tm(23,59))
       plt.ylim (minYTime, maxYTime)
       
       myYTicks = []
       yTickHrApart = 2
-      for eachTick in range(int(24/yTickHrApart)):
-            myYTicks.append(datetime.datetime.combine(myDay,tm(eachTick*yTickHrApart,0,0)))
-      myYTicks.append(datetime.datetime.combine(myDay,tm(23,59)))
+      numberOfTicks = int((24-startHour)/yTickHrApart)
+      adjustHr = 0 if ((24-startHour) == numberOfTicks * yTickHrApart) else 1
+      
+      for eachTick in range(numberOfTicks + adjustHr):
+          myYTicks.append(datetime.datetime.combine(myDay,tm(eachTick*yTickHrApart+startHour,0,0)))
+      
+      if (not adjustHr):    # add the 24hr mark to it
+          myYTicks.append(datetime.datetime.combine(myDay,tm(23,59)))
+          
       plt.yticks (myYTicks)
       
-      plt.grid(axis='y')
+#      plt.grid(axis='y')
+      plt.grid()
       plt.subplots_adjust (top=0.9,
                            bottom=0.35,
                            left=0.1,
