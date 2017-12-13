@@ -1,3 +1,5 @@
 
 *.csv
 *.ini
+*.pyc
+*.db

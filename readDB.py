@@ -6,14 +6,13 @@ Created on Sun Nov 12 16:02:32 2017
 """
 
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import sqlite3
 from datetime import datetime as dt
 from datetime import date as dt2
 from datetime import time as tm
 import statistics
 import barplot
+import exports
 
 def convTimeObjToSeconds (_tObj):
       return (_tObj.hour * 3600 +
@@ -175,3 +174,5 @@ dfMerged.fillna(tm(0,0,0), inplace=True)
 
 barplot.BarPlotTime(dfMerged)
 
+# exports the merged dataframe to csv
+exports.export2CSV (dfMerged)
