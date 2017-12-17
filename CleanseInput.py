@@ -3,6 +3,7 @@ import pandas as pd
 #import numpy as np
 #import matplotlib.pyplot as plt
 import sqlite3
+import readIni as myIni
 
 # =============================================================================
 def writeRec (dttm, user, action):
@@ -22,8 +23,27 @@ def writeRec (dttm, user, action):
     return rowWritten
 # =============================================================================
 
+bOK = myIni.readINI()   # just use the default 'config.ini' 
+if (bOK == False):
+    print ('config.ini not present, exiting')
+    exit
+
+sectionName = 'Inputs'
+keyNames = ['inputFilePattern', 'delimiter']
+bOK, inputFilePattern = myIni.get_sectionKeyValues(sectionName, keyNames[0])
+if (bOK == False):
+    print ("[INI] section '{0}', name '{1}' not found. defaulting to 'BasicEventReport.csv'".format(sectionName, keyNames[0]))
+inputFilePattern = 'BasicEventReport.csv' if inputFilePattern is None else inputFilePattern
+
+bOK, delim = myIni.get_sectionKeyValues (sectionName, keyNames[1])
+if (bOK == False):
+    print ("[INI] section '{0}', name '{1}' not found, defaulting to ','".format(sectionName, keyNames[1]))
+
+delim = ',' if delim is None else delim
 logFile = 'BasicEventReport.csv'
-delim = ','
+
+########### need to refactor the code here ... add a wrapper or something
+
 df = pd.read_csv(logFile, delimiter = delim)
 
 #fetch the column names
