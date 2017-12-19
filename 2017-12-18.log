@@ -1,0 +1,57 @@
+2017-12-18 22:55:28,425 [appLogging]: LogFile '2017-12-18.log' ready...
+2017-12-18 22:55:28,505 [__main__]: processing 'BasicEventReport 2017-09-01 to 2017-11-09.csv'
+2017-12-18 22:55:28,507 [__main__]: - # of records read: 10000
+2017-12-18 22:55:28,509 [__main__]: - reduced to 1776 rows
+2017-12-18 22:55:28,607 [__main__]: ~~ DB connected
+2017-12-18 22:55:28,607 [__main__]: *** Writing recs to db...
+2017-12-18 22:55:29,821 [__main__]: Finished writing to db!
+2017-12-18 22:55:29,821 [__main__]: ===> rows written to db/rows in dataframe: 0/1776
+2017-12-18 22:55:29,822 [__main__]: ~~ disconnectDB()
+2017-12-18 22:55:29,935 [__main__]: processing 'BasicEventReport 2017-11-09 to 2017-11-14.csv'
+2017-12-18 22:55:29,937 [__main__]: - # of records read: 1000
+2017-12-18 22:55:29,940 [__main__]: - reduced to 191 rows
+2017-12-18 22:55:30,017 [__main__]: ~~ DB connected
+2017-12-18 22:55:30,018 [__main__]: *** Writing recs to db...
+2017-12-18 22:55:30,149 [__main__]: Finished writing to db!
+2017-12-18 22:55:30,149 [__main__]: ===> rows written to db/rows in dataframe: 0/191
+2017-12-18 22:55:30,150 [__main__]: ~~ disconnectDB()
+2017-12-18 22:55:30,213 [__main__]: processing 'BasicEventReport 2017-11-12 toot 2017-11-18 (P).csv'
+2017-12-18 22:55:30,216 [__main__]: - # of records read: 6954
+2017-12-18 22:55:30,219 [__main__]: - reduced to 1259 rows
+2017-12-18 22:55:30,293 [__main__]: ~~ DB connected
+2017-12-18 22:55:30,294 [__main__]: *** Writing recs to db...
+2017-12-18 22:57:02,276 [__main__]: Finished writing to db!
+2017-12-18 22:57:02,277 [__main__]: ===> rows written to db/rows in dataframe: 1052/1259
+2017-12-18 22:57:02,277 [__main__]: ~~ disconnectDB()
+2017-12-18 22:57:02,317 [__main__]: processing 'BasicEventReport 2017-11-14 to 2017-11-17.csv'
+2017-12-18 22:57:02,318 [__main__]: - # of records read: 1000
+2017-12-18 22:57:02,321 [__main__]: - reduced to 176 rows
+2017-12-18 22:57:02,398 [__main__]: ~~ DB connected
+2017-12-18 22:57:02,399 [__main__]: *** Writing recs to db...
+2017-12-18 22:57:02,516 [__main__]: Finished writing to db!
+2017-12-18 22:57:02,517 [__main__]: ===> rows written to db/rows in dataframe: 0/176
+2017-12-18 22:57:02,517 [__main__]: ~~ disconnectDB()
+2017-12-18 22:57:02,549 [__main__]: processing 'BasicEventReport 2017-11-17 to 2017-11-21.csv'
+2017-12-18 22:57:02,551 [__main__]: - # of records read: 1000
+2017-12-18 22:57:02,552 [__main__]: - reduced to 153 rows
+2017-12-18 22:57:02,626 [__main__]: ~~ DB connected
+2017-12-18 22:57:02,627 [__main__]: *** Writing recs to db...
+2017-12-18 22:57:02,730 [__main__]: Finished writing to db!
+2017-12-18 22:57:02,730 [__main__]: ===> rows written to db/rows in dataframe: 0/153
+2017-12-18 22:57:02,731 [__main__]: ~~ disconnectDB()
+2017-12-18 22:57:02,792 [__main__]: processing 'BasicEventReport 2017-11-19 toot 2017-11-22 (P).csv'
+2017-12-18 22:57:02,795 [__main__]: - # of records read: 6639
+2017-12-18 22:57:02,797 [__main__]: - reduced to 1157 rows
+2017-12-18 22:57:02,874 [__main__]: ~~ DB connected
+2017-12-18 22:57:02,874 [__main__]: *** Writing recs to db...
+2017-12-18 22:58:31,442 [__main__]: Finished writing to db!
+2017-12-18 22:58:31,442 [__main__]: ===> rows written to db/rows in dataframe: 1004/1157
+2017-12-18 22:58:31,443 [__main__]: ~~ disconnectDB()
+2017-12-18 22:58:31,486 [__main__]: processing 'BasicEventReport.csv'
+2017-12-18 22:58:31,487 [__main__]: - # of records read: 1000
+2017-12-18 22:58:31,489 [__main__]: - reduced to 184 rows
+2017-12-18 22:58:31,563 [__main__]: ~~ DB connected
+2017-12-18 22:58:31,563 [__main__]: *** Writing recs to db...
+2017-12-18 22:58:31,686 [__main__]: Finished writing to db!
+2017-12-18 22:58:31,687 [__main__]: ===> rows written to db/rows in dataframe: 0/184
+2017-12-18 22:58:31,687 [__main__]: ~~ disconnectDB()

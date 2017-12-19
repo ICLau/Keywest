@@ -14,6 +14,8 @@ import statistics
 import barplot
 import exports
 
+# select datestamp from AccessLog order by datestamp asc limit 5
+
 def convTimeObjToSeconds (_tObj):
       return (_tObj.hour * 3600 +
               _tObj.minute * 60 +

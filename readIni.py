@@ -74,24 +74,23 @@ def get_sectionKeyValues (sName, kName):
 
 # =============================================================================
 
-
-# =============================================================================
-# bSuccess = readINI()
-# print ('readINI() returns:', bSuccess)
-# bSuccess, SectionNameList = get_sectionNames ()
-# print ('get_sectionNames() returns', bSuccess)
-# if (bSuccess): 
-#     print ('* sectionNames are:', SectionNameList)
-# 
-# bSuccess, kValues = get_sectionKeyValues ('input', 'delimitor')
-# print ("get_sectionKeyValues ('input', 'delimitor'): returns:", bSuccess)
-# 
-# bSuccess, kValues = get_sectionKeyValues ('Inputs', 'delimiter')
-# print ("get_sectionKeyValues ('inputs', 'delimiter'): returns:", bSuccess)
-# print ('=> kValues:', kValues)
-# 
-# bSuccess, kValues = get_sectionKeyValues ('Inputs', 'inputFilePattern')
-# print ("get_sectionKeyValues ('inputs', 'inputFilePattern'): returns:", bSuccess)
-# print ('=> kValues:', kValues)
-# =============================================================================
+bSuccess = readINI()
+ 
+if (__name__ == '__main__'):
+    print ('readINI() returns:', bSuccess)
+    bSuccess, SectionNameList = get_sectionNames ()
+    print ('get_sectionNames() returns', bSuccess)
+    if (bSuccess): 
+        print ('* sectionNames are:', SectionNameList)
+    
+    bSuccess, kValues = get_sectionKeyValues ('input', 'delimitor')
+    print ("get_sectionKeyValues ('input', 'delimitor'): returns:", bSuccess)
+    
+    bSuccess, kValues = get_sectionKeyValues ('Inputs', 'delimiter')
+    print ("get_sectionKeyValues ('inputs', 'delimiter'): returns:", bSuccess)
+    print ('=> kValues:', kValues)
+    
+    bSuccess, kValues = get_sectionKeyValues ('Inputs', 'inputFilePattern')
+    print ("get_sectionKeyValues ('inputs', 'inputFilePattern'): returns:", bSuccess)
+    print ('=> kValues:', kValues)
 
