@@ -11,8 +11,12 @@ from datetime import datetime as dt
 from datetime import date as dt2
 from datetime import time as tm
 import statistics
+
 import barplot
 import exports
+import appDB
+import appLogging as appLog
+import readIni as appIni
 
 # select datestamp from AccessLog order by datestamp asc limit 5
 
@@ -102,27 +106,67 @@ def assembleStats (dfBadging, userList, strOut='Checkin', sortAscending=True):
             userBadging.append ([eachUser, _datePart, _timePart, _timePartInSec, _median_checkin])
             
       return userBadging      
+  
 # =============================================================================
+# main
 
-doorDB = 'DoorAccess.db'
-conn = sqlite3.connect (doorDB)
-dbCur = conn.cursor()
+dbConn = appDB.connectBadgeDB()
+assert (dbConn != None)
 
-dbCur.execute ("CREATE TABLE IF NOT EXISTS AccessLog (datestamp TEXT, user TEXT, action TEXT, PRIMARY KEY (user, datestamp))")
+#doorDB = 'DoorAccess.db'
+#conn = sqlite3.connect (doorDB)
+#dbCur = conn.cursor()
+#
+#dbCur.execute ("CREATE TABLE IF NOT EXISTS AccessLog (datestamp TEXT, user TEXT, action TEXT, PRIMARY KEY (user, datestamp))")
 
 # =============================================================================
 # Reads everything in from DB into a DataFrame
 # =============================================================================
-sqlStmt = str.format ('SELECT datestamp, user, action FROM AccessLog')
-dbCur.execute (sqlStmt)
-
-df = pd.DataFrame (dbCur.fetchall())
+#sqlStmt = str.format ('SELECT datestamp, user, action FROM AccessLog')
+#dbCur.execute (sqlStmt)
+#
+#df = pd.DataFrame (dbCur.fetchall())
+df = appDB.readAllBadgeRecords(dbConn)
+appLog.logMsg(__name__,
+              appLog._iINFO,
+              "# of records read from db = {0}".format(len(df)))
 
 # =============================================================================
 # Closes the DB
 # =============================================================================
-dbCur.close()
-conn.close()
+appDB.disconnectDB(dbConn)
+
+# =============================================================================
+# read config.ini
+# =============================================================================
+sectionNames = {'Inputs' : 'Inputs',
+                'Users'  : 'Users',
+                'Exports' : 'Exports'}
+keyNames = {'badgeIn'  : 'badgeIn',
+            'badgeOut' : 'badgeOut',
+            'exclude'  : 'exclude',
+            'exportFile' : 'exportFile'}
+defaultFilters = {'In':'Access Granted',
+                  'Out'  :'Exit Granted',
+                  'ExportFileName' : 'Badge In-Out Median.csv'}
+
+bOK, fltrBadgedIn = appIni.get_sectionKeyValues (sectionNames['Inputs'], keyNames['badgeIn'])
+if (bOK == False):
+    print ("[INI] section '{0}', name '{1}' not found. defaulting to '{2}'".format(sectionNames['Inputs'], 
+              keyNames['badgeIn']),
+              defaultFilters['In'])
+   
+if (fltrBadgedIn is None or fltrBadgedIn.strip() == ''):
+    fltrBadgedIn = defaultFilters['In']
+
+bOK, fltrBadgedOut = appIni.get_sectionKeyValues (sectionNames['Inputs'], keyNames['badgeOut'])
+if (bOK == False):
+    print ("[INI] section '{0}', name '{1}' not found. defaulting to '{3}'".format(sectionNames['Inputs'], 
+               keyNames['badgeOut']))
+   
+if (fltrBadgedOut is None or fltrBadgedOut.strip() == ''):
+    fltrBadgedOut = defaultFilters['Out']
+
 
 # set df col names
 colNames = ['DateTime', 'User', 'Action']
@@ -130,8 +174,6 @@ df.columns = colNames
 
 #userCounts = df[colNames[1]].value_counts()           # testing, no longer needed
 
-fltrBadgedIn = 'Access Granted'
-fltrBadgedOut = 'Exit Granted'
 df_In = df[df[colNames[2]].isin([fltrBadgedIn])]        # filter badging in action
 df_In = df_In[[colNames[0], colNames[1]]]               # drop the action col - no need to carry it around
 userCounts = df_In[colNames[1]].value_counts()
@@ -177,4 +219,13 @@ dfMerged.fillna(tm(0,0,0), inplace=True)
 barplot.BarPlotTime(dfMerged)
 
 # exports the merged dataframe to csv
-exports.export2CSV (dfMerged)
+bOK, expFileName = appIni.get_sectionKeyValues (sectionNames['Exports'], keyNames['exportFile'])
+if (bOK == False):
+    print ("[INI] section '{0}', name '{1}' not found. defaulting to '{2}'".format(sectionNames['Exports'], 
+              keyNames['exportFile']),
+              defaultFilters['ExportFileName'])
+   
+if (expFileName is None or expFileName.strip() == ''):
+    expFileName = defaultFilters['ExportFileName']
+
+exports.export2CSV (dfMerged, expFileName)

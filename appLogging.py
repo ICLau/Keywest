@@ -20,12 +20,13 @@ logCritical = None
 logFunc = {logging.DEBUG    : logging.debug,
            logging.INFO     : logging.info,
            logging.WARN     : logging.warning,
+           logging.ERROR    : logging.error,
            logging.CRITICAL : logging.critical}
 
 _iDEBUG    = logging.DEBUG
 _iINFO     = logging.INFO
 _iWARNING  = logging.WARNING
-_iERROT    = logging.ERROR
+_iERROR    = logging.ERROR
 _iCRITICAL = logging.CRITICAL
 
 logLevelDict = {'DEBUG'    : logging.DEBUG,         # 10
