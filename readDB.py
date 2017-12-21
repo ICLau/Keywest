@@ -6,7 +6,6 @@ Created on Sun Nov 12 16:02:32 2017
 """
 
 import pandas as pd
-import sqlite3
 from datetime import datetime as dt
 from datetime import date as dt2
 from datetime import time as tm
@@ -109,6 +108,7 @@ def assembleStats (dfBadging, userList, strOut='Checkin', sortAscending=True):
   
 # =============================================================================
 # main
+# =============================================================================
 
 dbConn = appDB.connectBadgeDB()
 assert (dbConn != None)
@@ -126,7 +126,7 @@ assert (dbConn != None)
 #dbCur.execute (sqlStmt)
 #
 #df = pd.DataFrame (dbCur.fetchall())
-df = appDB.readAllBadgeRecords(dbConn)
+df = pd.DataFrame(appDB.readAllBadgeRecords(dbConn))
 appLog.logMsg(__name__,
               appLog._iINFO,
               "# of records read from db = {0}".format(len(df)))
@@ -145,11 +145,13 @@ sectionNames = {'Inputs' : 'Inputs',
 keyNames = {'badgeIn'  : 'badgeIn',
             'badgeOut' : 'badgeOut',
             'exclude'  : 'exclude',
-            'exportFile' : 'exportFile'}
+            'exportFile' : 'exportFile',
+            'exportFileName' : 'exportFileName'}
 defaultFilters = {'In':'Access Granted',
                   'Out'  :'Exit Granted',
                   'ExportFileName' : 'Badge In-Out Median.csv'}
 
+# sets the Badge-In filter string
 bOK, fltrBadgedIn = appIni.get_sectionKeyValues (sectionNames['Inputs'], keyNames['badgeIn'])
 if (bOK == False):
     print ("[INI] section '{0}', name '{1}' not found. defaulting to '{2}'".format(sectionNames['Inputs'], 
@@ -159,6 +161,7 @@ if (bOK == False):
 if (fltrBadgedIn is None or fltrBadgedIn.strip() == ''):
     fltrBadgedIn = defaultFilters['In']
 
+# sets the Badge-Out filter string
 bOK, fltrBadgedOut = appIni.get_sectionKeyValues (sectionNames['Inputs'], keyNames['badgeOut'])
 if (bOK == False):
     print ("[INI] section '{0}', name '{1}' not found. defaulting to '{3}'".format(sectionNames['Inputs'], 
@@ -219,13 +222,28 @@ dfMerged.fillna(tm(0,0,0), inplace=True)
 barplot.BarPlotTime(dfMerged)
 
 # exports the merged dataframe to csv
-bOK, expFileName = appIni.get_sectionKeyValues (sectionNames['Exports'], keyNames['exportFile'])
+bExport = False
+bOK, exportFile = appIni.get_sectionKeyValues (sectionNames['Exports'], keyNames['exportFile'])
 if (bOK == False):
     print ("[INI] section '{0}', name '{1}' not found. defaulting to '{2}'".format(sectionNames['Exports'], 
               keyNames['exportFile']),
-              defaultFilters['ExportFileName'])
-   
-if (expFileName is None or expFileName.strip() == ''):
-    expFileName = defaultFilters['ExportFileName']
-
-exports.export2CSV (dfMerged, expFileName)
+              'No export')
+else:
+    exportFile = exportFile.strip()
+    if (exportFile != '' and exportFile.startswith(tuple('1tT')) ):
+        bExport = True
+    
+if (bExport):
+    bOK, expFileName = appIni.get_sectionKeyValues (sectionNames['Exports'], keyNames['exportFileName'])
+    if (bOK == False):
+        print ("[INI] section '{0}', name '{1}' not found. defaulting to '{2}'".format(sectionNames['Exports'], 
+                  keyNames['exportFile']),
+                  defaultFilters['ExportFileName'])
+       
+    if (expFileName is None or expFileName.strip() == ''):
+        expFileName = defaultFilters['ExportFileName']
+    
+    appLog.logMsg (__name__,
+                   appLog._iINFO,
+                   "Exporting 'median' dataframe to '{0}'".format(expFileName))
+#    exports.export2CSV (dfMerged, expFileName)

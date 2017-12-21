@@ -25,6 +25,8 @@ strCreateTableSQL = "CREATE TABLE IF NOT EXISTS {0} (datestamp TEXT, user TEXT, 
 strCheckDateTimeUserSQL = "SELECT datestamp, user FROM AccessLog WHERE datestamp = '{0}' AND user = '{1}'"
 strInsertBadgeRecSQL = "INSERT INTO AccessLog (datestamp, user, action) VALUES (?, ?, ?) "
 strReadAllRecs = 'SELECT datestamp, user, action FROM {0}'.format(defaultTableName)
+strSelectMINdateSQL = "select MIN(datestamp) from {0}".format(defaultTableName)
+strSelectMAXdateSQL = "select MAX(datestamp) from {0}".format(defaultTableName)
 
 # =============================================================================
 def disconnectDB (conn):
@@ -88,13 +90,13 @@ def connectDB (dbName):
 # =============================================================================
 # returns a date object
 # =============================================================================
-def selectMINDate (dbConn, selectMINDateSQL):
+def selectMINDate (dbConn, selectMINDateSQL=strSelectMINdateSQL):
     return (selectMINDateTime(dbConn, selectMINDateSQL)).date()
 
 # =============================================================================
 # returns a datetime object
 # =============================================================================
-def selectMINDateTime (dbConn, selectMINDateSQL):
+def selectMINDateTime (dbConn, selectMINDateSQL=strSelectMINdateSQL):
     try:
         dbCur = dbConn.cursor()
         dbCur.execute (selectMINDateSQL)
@@ -110,13 +112,13 @@ def selectMINDateTime (dbConn, selectMINDateSQL):
 # =============================================================================
 # returns a date object
 # =============================================================================
-def selectMAXDate (dbConn, selectMAXDateSQL):
+def selectMAXDate (dbConn, selectMAXDateSQL=strSelectMAXdateSQL):
     return (selectMINDateTime(dbConn, selectMAXDateSQL)).date()
 
 # =============================================================================
 # returns a datetime object
 # =============================================================================
-def selectMAXDateTime (dbConn, selectMAXDateSQL):
+def selectMAXDateTime (dbConn, selectMAXDateSQL=strSelectMAXdateSQL):
     try:
         dbCur = dbConn.cursor()
         dbCur.execute (selectMAXDateSQL)

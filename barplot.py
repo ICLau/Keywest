@@ -12,6 +12,10 @@ import matplotlib.dates as mdates
 from matplotlib.dates import DateFormatter
 from matplotlib.dates import HourLocator
 
+import appLogging as appLog
+import readIni as appIni
+import appDB
+
 # =============================================================================
 # def autolabel(rects):
 #     """
@@ -35,6 +39,7 @@ from matplotlib.dates import HourLocator
 # - dfUserMedians - input
 #   - index = username (unique)
 #   - col0 = median checkin time (DateTime Time obj - no date part)
+#   - col1 = median checkout time (DateTime Time obj - no date part)
 # =============================================================================
 def BarPlotTime (dfUserMedians):
       n = len(dfUserMedians)
@@ -51,8 +56,9 @@ def BarPlotTime (dfUserMedians):
       ymDt  = [mdates.date2num(d) for d in y]
       y2mDt = [mdates.date2num(d) for d in y2]
       
+      missingTime = tm(0,0,0)
       for i in range(len(y)):
-          if yTemp[i] == tm(0,0,0) or yTemp2[i] == tm(0,0,0):
+          if yTemp[i] == missingTime or yTemp2[i] == missingTime:
               ymDt[i] = y2mDt[i] = 0
           else:
               y2mDt[i] -= ymDt[i]
@@ -64,7 +70,11 @@ def BarPlotTime (dfUserMedians):
       
       # add some text for labels, title and axes ticks
       ax.set_ylabel('Time')
-      ax.set_title('Median Time In & Out')
+      ax.set_title('Median Time In & Out (' + 
+                        minDate.strftime('%b-%d, %Y') +
+                        ' to '+
+                        maxDate.strftime('%b-%d, %Y') +
+                        ')')
       ax.set_xticks(ind + width / 2)
       ax.set_xticklabels(dfUserMedians.index)
       for xTickLabel in ax.xaxis.get_ticklabels():
@@ -74,31 +84,34 @@ def BarPlotTime (dfUserMedians):
       #This must be called before the locator/formatter
       ax.yaxis_date()
       ax.yaxis.set_major_locator(HourLocator())
-      ax.yaxis.set_major_formatter(DateFormatter('%H:%M'))
+      ax.yaxis.set_major_formatter(DateFormatter('%I:%M%p'))
       
       #autolabel(rects1)
       #autolabel(rects2)
       
-      startHour = 7  # y min at 7am
+      startHour = iStartHour  # y min at 7am
+      endHour   = iEndHour    # used to be 23:59, but now is configurable via ini, defaults to 7pm
       minYTime = datetime.datetime.combine (myDay, tm(startHour,0,0))
-      maxYTime = datetime.datetime.combine (myDay, tm(23,59))
+      maxYTime = datetime.datetime.combine (myDay, tm(endHour,0,0))
       plt.ylim (minYTime, maxYTime)
       
       myYTicks = []
-      yTickHrApart = 2
-      numberOfTicks = int((24-startHour)/yTickHrApart)
-      adjustHr = 0 if ((24-startHour) == numberOfTicks * yTickHrApart) else 1
-      
-      for eachTick in range(numberOfTicks + adjustHr):
+      yTickHrApart = iHoursApart
+      numberOfTicks = int((endHour-startHour)/(yTickHrApart))+1
+      for eachTick in range(numberOfTicks):
           myYTicks.append(datetime.datetime.combine(myDay,tm(eachTick*yTickHrApart+startHour,0,0)))
       
-      if (not adjustHr):    # add the 24hr mark to it
-          myYTicks.append(datetime.datetime.combine(myDay,tm(23,59)))
-          
       plt.yticks (myYTicks)
       
-#      plt.grid(axis='y')
-      plt.grid()
+      if (iShowGrid == 1): 
+          plt.grid(axis='x', linestyle='solid')
+      elif (iShowGrid == 2):
+          plt.grid(axis='y', linestyle='solid')
+      elif (iShowGrid == 3):
+          plt.grid(axis='both', linestyle='solid')
+      else:
+          plt.grid(b=None)
+            
       plt.subplots_adjust (top=0.9,
                            bottom=0.35,
                            left=0.1,
@@ -108,3 +121,143 @@ def BarPlotTime (dfUserMedians):
       plt.show()
       
 # =============================================================================
+# main
+# =============================================================================
+
+# initialize some variables
+dbConn = appDB.connectBadgeDB()
+minDate = appDB.selectMINDate(dbConn)
+maxDate = appDB.selectMAXDate(dbConn)
+appDB.disconnectDB(dbConn)
+
+appLog.logMsg (__name__,
+               appLog._iINFO,
+               "minDate = {0}".format(minDate.strftime('%b-%d, %Y')))
+appLog.logMsg (__name__,
+               appLog._iINFO,
+               "maxDate = {0}".format(maxDate.strftime('%b-%d, %Y')))
+
+# read from config.ini
+iniSection = {'BarGraph' : 'BarGraph'}
+iniKey = {'startHour'     : 'startHour',
+          'endHour'       : 'endHour',
+          'hoursApart'    : 'hoursApart',
+          'showGrid'      : 'showGrid',     # showGrid = 0 (no grid), 1 (vertical lines), 2 (horizontal lines), 3 (both)
+          'shadeStartHour':'shadeStartHour',
+          'shadeEndHour'  :'shadeEndHour'}
+defaultValue =  {'startHour'      : 7,
+                 'endHour'        : 12+7,
+                 'hoursApart'     : 1,
+                 'showGrid'       : 3,
+                 'shadeStartHour' : 9,
+                 'shadeEndHour'   : 12+5}
+
+iStartHour = defaultValue['startHour']
+iEndHour   = defaultValue['endHour']
+iHoursApart = defaultValue['hoursApart']
+iShowGrid = defaultValue['showGrid']
+iShadeStartHour = defaultValue['shadeStartHour']
+iShadeEndHour = defaultValue['shadeEndHour']
+
+bOK, tempStr = appIni.get_sectionKeyValues(iniSection['BarGraph'],iniKey['startHour'])
+if (bOK == True and tempStr is not None and tempStr.strip() != ''):
+    tempHr = abs(int(float(tempStr)/1.0))
+    if (tempHr <= 20): # kind of silly to start plotting at 8pm
+        iStartHour = tempHr
+#print("iStartHour = {0}".format(iStartHour))
+    
+bOK, tempStr = appIni.get_sectionKeyValues(iniSection['BarGraph'], iniKey['endHour'])
+if (bOK == True and tempStr is not None and tempStr.strip() != ''):
+    tempHr = abs(int(float(tempStr)/1.0))
+    if (tempHr > 7 and tempHr <= 23):
+        iEndHour = tempHr
+#print("iEndHour = {0}".format(iEndHour))
+
+bOK, tempStr = appIni.get_sectionKeyValues(iniSection['BarGraph'], iniKey['hoursApart'])
+if (bOK == True and tempStr is not None and tempStr.strip() != ''):
+    tempHr = abs(int(float(tempStr)/1.0))
+    if (tempHr > 0 and tempHr <= 5): # silly to have 5 hours apart
+        iHoursApart = tempHr
+#print("iHoursApart = {0}".format(iHoursApart))
+
+# hoping that (iEndHour-iStartHour) is divisible by iHoursApart
+bResetToDefaults = False
+if (iStartHour >= iEndHour):
+    bResetToDefaults = True
+elif ((iEndHour - iStartHour) < iHoursApart): # (15:00-12:00) with 4 hrs apart
+    bResetToDefaults = True
+
+if (bResetToDefaults):
+    iStartHour = defaultValue['startHour']
+    iEndHour   = defaultValue['endHour']
+    iHoursApart = defaultValue['hoursApart']
+
+#print("bResetToDefaults = {0}".format(bResetToDefaults))
+
+bOK, tempStr = appIni.get_sectionKeyValues(iniSection['BarGraph'], iniKey['showGrid'])
+if (bOK == True and tempStr is not None and tempStr.strip() != ''):
+    tempHr = abs(int(float(tempStr)/1.0))
+    if (tempHr <= 3):
+        iShowGrid = tempHr
+#print("iShowGrid = {0}".format(iShowGrid))
+
+bOK, tempStr = appIni.get_sectionKeyValues(iniSection['BarGraph'], iniKey['shadeStartHour'])
+if (bOK == True and tempStr is not None and tempStr.strip() != ''):
+    tempHr = abs(int(float(tempStr)/1.0))
+    if (tempHr > iStartHour and tempHr < iEndHour):
+        iShadeStartHour = tempHr
+#print("iShadeStartHour = {0}".format(iShadeStartHour))
+
+bOK, tempStr = appIni.get_sectionKeyValues(iniSection['BarGraph'], iniKey['shadeEndHour'])
+if (bOK == True and tempStr is not None and tempStr.strip() != ''):
+    tempHr = abs(int(float(tempStr)/1.0))
+    if (tempHr > iStartHour and tempHr < iEndHour and tempHr > iShadeStartHour):
+        iShadeEndHour = tempHr
+#print("iShadeEndHour = {0}".format(iShadeEndHour))
+
+
+
+# =============================================================================
+# =============================================================================
+# =============================================================================
+# self test and diagnostics
+if (__name__ == '__main__'):
+    import pandas as pd
+
+    users = ['Albert',
+    		 'Betty',
+    		 'Charles',
+    		 'David',
+    		 'Edmond',
+    		 'Fiona',
+    		 'George',
+    		 'Heidi',
+    		 'Ilia',
+    		 'Joanna']
+    		 
+    meanTime = [  [tm(7,50), tm(17,50)],
+                  [tm(8,33), tm(17,50)],
+                  [tm(9,12), tm(0,0)  ],
+                  [tm(10,15),tm(18,12)],
+                  [tm(7,55), tm(14,15)],
+                  [tm(8,10), tm(16,55)],
+                  [tm(9,22), tm(18,10)],
+                  [tm(10,34),tm(17,22)],
+                  [tm(0,0),  tm(17,34)],
+                  [tm(8,45), tm(16,45)]
+                ]
+ 
+    			
+
+    print ('size of users = {0} meanTime = {1}'.format(len(users), len(meanTime)))
+    print("iStartHour = {0}".format(iStartHour))
+    print("iEndHour = {0}".format(iEndHour))
+    print("iHoursApart = {0}".format(iHoursApart))
+    print("bResetToDefaults = {0}".format(bResetToDefaults))
+    print("iShowGrid = {0}".format(iShowGrid))
+    print("iShadeStartHour = {0}".format(iShadeStartHour))
+    print("iShadeEndHour = {0}".format(iShadeEndHour))
+
+    dfTest = pd.DataFrame(meanTime, index=users,  columns=['MedianTimeIn','MedianTimeOut'])
+    BarPlotTime(dfTest)
+    
