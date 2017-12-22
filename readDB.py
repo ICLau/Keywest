@@ -105,7 +105,41 @@ def assembleStats (dfBadging, userList, strOut='Checkin', sortAscending=True):
             userBadging.append ([eachUser, _datePart, _timePart, _timePartInSec, _median_checkin])
             
       return userBadging      
-  
+
+# =============================================================================
+# input arg - strSearch
+#     a search string - if the beginning and/or end is a '*' - return True and a copy of the string without leading & trailing '*'
+#     otherwise returns False
+def isSubstringSearch (strSearch):
+    bSubString = False
+    iStart = 0
+    iEnd = len(strSearch)
+    if (strSearch.startswith('*')):
+        iStart = 1
+        bSubString = True
+    
+    if (strSearch.endswith('*')):
+        iEnd -= 1
+        bSubString = True
+
+    return bSubString, strSearch[iStart:iEnd]
+
+# =============================================================================
+#    dfThis = dataframe - must contain a column named "User" (colNames[1] variable)
+#    exactMatch, containMatch - lists that contain users to be removed from 'dfThis'
+def removeUsers (dfThis, exactMatch, containMatch):
+
+    # for exact matches, use .isin() - case sensitive
+    if (len(exactMatch) > 0):
+        dfThis = dfThis[ ~ dfThis[colNames[1]].isin(exactMatch) ]
+    
+    # for substring or wild card elimination, it will be case INsensitive
+    if (len(excludeUsersContain) > 0):
+        for eachExclUser in containMatch:
+            dfThis = dfThis[ ~ dfThis[colNames[1]].str.contains (eachExclUser, case=False) ]
+
+    return dfThis
+
 # =============================================================================
 # main
 # =============================================================================
@@ -170,15 +204,44 @@ if (bOK == False):
 if (fltrBadgedOut is None or fltrBadgedOut.strip() == ''):
     fltrBadgedOut = defaultFilters['Out']
 
+# gets the list of exclude users
+excludeUsers = []
+bOK, temp = appIni.get_sectionKeyValues (sectionNames['Users'], keyNames['exclude'])
+if (bOK == True and len(temp) != 0):
+    # temp is an instance of str if exclude=abc
+    # temp is an instance of list if exclude=abc,def
+    if ('str' == type(temp).__name__):
+        excludeUsers = [temp]
+    else:
+        excludeUsers = temp
+
+# split the exclusion list into 2 groups
+excludeExactUsers = []
+excludeUsersContain = []
+for eachExcludeUser in excludeUsers:
+    bContainSearch, tempUser = isSubstringSearch(eachExcludeUser)
+    if (bContainSearch):
+        excludeUsersContain.append(tempUser)
+    else:
+        excludeExactUsers.append(tempUser)
+
+
 
 # set df col names
 colNames = ['DateTime', 'User', 'Action']
 df.columns = colNames
 
-#userCounts = df[colNames[1]].value_counts()           # testing, no longer needed
-
 df_In = df[df[colNames[2]].isin([fltrBadgedIn])]        # filter badging in action
 df_In = df_In[[colNames[0], colNames[1]]]               # drop the action col - no need to carry it around
+
+# knocks out the exclude users
+df_In = removeUsers (df_In, excludeExactUsers, excludeUsersContain)
+
+
+df_Out = df[df[colNames[2]].isin([fltrBadgedOut])]    # filter badging out action
+df_Out = df_Out[[colNames[0], colNames[1]]]           # drop the action column - all related to badging out
+df_Out = removeUsers (df_Out, excludeExactUsers, excludeUsersContain)
+
 userCounts = df_In[colNames[1]].value_counts()
 #print ("="*10, 'In', [len(userCounts)], '='*10)
 #print (userCounts)
@@ -187,11 +250,8 @@ print ("-" * 80)
 user_daily_checkin = []
 user_daily_checkout = []
 
-
 user_daily_checkin = assembleStats (df_In, userCounts.index, 'CheckIn')
 
-df_Out = df[df[colNames[2]].isin([fltrBadgedOut])]    # filter badging out action
-df_Out = df_Out[[colNames[0], colNames[1]]]           # drop the action column - all related to badging out
 userCounts = df_Out[colNames[1]].value_counts()
 #print ("="*10, 'Out',[len(userCounts)], '='*10)
 #print (userCounts)
@@ -246,4 +306,4 @@ if (bExport):
     appLog.logMsg (__name__,
                    appLog._iINFO,
                    "Exporting 'median' dataframe to '{0}'".format(expFileName))
-#    exports.export2CSV (dfMerged, expFileName)
+    exports.export2CSV (dfMerged, expFileName)

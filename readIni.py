@@ -93,4 +93,16 @@ if (__name__ == '__main__'):
     bSuccess, kValues = get_sectionKeyValues ('Inputs', 'inputFilePattern')
     print ("get_sectionKeyValues ('inputs', 'inputFilePattern'): returns:", bSuccess)
     print ('=> kValues:', kValues)
+    
+    bSuccess, kValues = get_sectionKeyValues ('Users', 'exclude')
+    print ("get_sectionKeyValues ('Users', 'exclude') returns: {0}".format(bSuccess))
+    print ('=> kValues:', kValues)
+    b = []
+    if ('str' == type(kValues).__name__):
+        b = [kValues]
+    else:
+        b = kValues
+
+    sType = type(kValues).__name__
+    print ('Type of kValues is "{0}" and b = "{1}"'.format(sType, b))
 
