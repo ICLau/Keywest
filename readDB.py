@@ -141,49 +141,108 @@ def removeUsers (dfThis, exactMatch, containMatch):
     return dfThis
 
 # =============================================================================
+def loadDataFrameFromDB():
+    dbConn = appDB.connectBadgeDB()
+    assert (dbConn != None)
+    
+    # Reads everything in from DB into a DataFrame
+    df = pd.DataFrame(appDB.readAllBadgeRecords(dbConn))
+    appLog.logMsg(__name__,
+                  appLog._iINFO,
+                  "# of records read from db = {0}".format(len(df)))
+    
+    # Closes the DB
+    appDB.disconnectDB(dbConn)
+
+    return df
+
+# =============================================================================
+#    input arg:
+#      dfThis - dataframe with these columns 'DateTime', 'User', 'Action'
+#    returns: merged dataframe (cleansed)
+# =============================================================================
+def analyzeUsersMedian (dfThis):
+    appLog.logMsg (__name__,
+                   appLog._iINFO,
+                   "analyzeUsersMedian - <Begins>")
+    
+    # set df col names
+    dfThis.columns = colNames
+    
+    df_In = dfThis[ dfThis[colNames[2]].isin([fltrBadgedIn]) ]        # filter badging in action
+    df_In = df_In[[colNames[0], colNames[1]]]               # drop the action col - no need to carry it around
+    
+    # knocks out the exclude users
+    df_In = removeUsers (df_In, excludeExactUsers, excludeUsersContain)
+    
+    
+    df_Out = dfThis[ dfThis[colNames[2]].isin([fltrBadgedOut]) ]    # filter badging out action
+    df_Out = df_Out[ [colNames[0], colNames[1]] ]           # drop the action column - all related to badging out
+    df_Out = removeUsers (df_Out, excludeExactUsers, excludeUsersContain)
+    
+    userCounts = df_In[colNames[1]].value_counts()
+    #print ("="*10, 'In', [len(userCounts)], '='*10)
+    #print (userCounts)
+    
+    print ("-" * 80)
+    user_daily_checkin = []
+    user_daily_checkout = []
+    
+    user_daily_checkin = assembleStats (df_In, userCounts.index, 'CheckIn')
+    
+    userCounts = df_Out[colNames[1]].value_counts()
+    #print ("="*10, 'Out',[len(userCounts)], '='*10)
+    #print (userCounts)
+    
+    user_daily_checkout = assembleStats (df_Out, userCounts.index, strOut='CheckOut', sortAscending=False)      
+    
+    imax = len(user_daily_checkin)
+    timein_users = [user_daily_checkin[i][0] for i in range(imax)]
+    timein_median = [user_daily_checkin[i][4] for i in range(imax)]
+    
+    imax= len(user_daily_checkout)
+    timeout_users = [user_daily_checkout[i][0] for i in range(imax)]
+    timeout_median = [user_daily_checkout[i][4] for i in range(imax)]
+    
+    ### merge the list before plotting
+    sMedianTimeIn  = 'MedianTimeIn'
+    sMedianTimeOut = 'MedianTimeOut'
+    dfUserTimeIn  = pd.DataFrame(timein_median,  index=timein_users,  columns=[sMedianTimeIn])
+    dfUserTimeOut = pd.DataFrame(timeout_median, index=timeout_users, columns=[sMedianTimeOut])
+    dfMerged = pd.merge (dfUserTimeIn, dfUserTimeOut, 
+                         how='outer',
+                         left_index=True,
+                         right_index=True)
+    
+    # remove NaN from merged dataframe
+    dfMerged.fillna(tm(0,0,0), inplace=True)
+    
+    appLog.logMsg (__name__,
+                   appLog._iINFO,
+                   "analyzeUsersMedian - <Ends>")
+    
+    return dfMerged
+
+
+# =============================================================================
 # main
 # =============================================================================
 
-dbConn = appDB.connectBadgeDB()
-assert (dbConn != None)
-
-#doorDB = 'DoorAccess.db'
-#conn = sqlite3.connect (doorDB)
-#dbCur = conn.cursor()
-#
-#dbCur.execute ("CREATE TABLE IF NOT EXISTS AccessLog (datestamp TEXT, user TEXT, action TEXT, PRIMARY KEY (user, datestamp))")
-
-# =============================================================================
-# Reads everything in from DB into a DataFrame
-# =============================================================================
-#sqlStmt = str.format ('SELECT datestamp, user, action FROM AccessLog')
-#dbCur.execute (sqlStmt)
-#
-#df = pd.DataFrame (dbCur.fetchall())
-df = pd.DataFrame(appDB.readAllBadgeRecords(dbConn))
-appLog.logMsg(__name__,
-              appLog._iINFO,
-              "# of records read from db = {0}".format(len(df)))
-
-# =============================================================================
-# Closes the DB
-# =============================================================================
-appDB.disconnectDB(dbConn)
-
+# Initialize some variables
 # =============================================================================
 # read config.ini
 # =============================================================================
-sectionNames = {'Inputs' : 'Inputs',
-                'Users'  : 'Users',
+sectionNames = {'Inputs'  : 'Inputs',
+                'Users'   : 'Users',
                 'Exports' : 'Exports'}
-keyNames = {'badgeIn'  : 'badgeIn',
-            'badgeOut' : 'badgeOut',
-            'exclude'  : 'exclude',
-            'exportFile' : 'exportFile',
+keyNames = {'badgeIn'        : 'badgeIn',
+            'badgeOut'       : 'badgeOut',
+            'exclude'        : 'exclude',
+            'exportFile'     : 'exportFile',
             'exportFileName' : 'exportFileName'}
-defaultFilters = {'In':'Access Granted',
-                  'Out'  :'Exit Granted',
-                  'ExportFileName' : 'Badge In-Out Median.csv'}
+defaultFilters = {'In'              :'Access Granted',
+                  'Out'             :'Exit Granted',
+                  'ExportFileName'  : 'Badge In-Out Median.csv'}
 
 # sets the Badge-In filter string
 bOK, fltrBadgedIn = appIni.get_sectionKeyValues (sectionNames['Inputs'], keyNames['badgeIn'])
@@ -225,63 +284,7 @@ for eachExcludeUser in excludeUsers:
     else:
         excludeExactUsers.append(tempUser)
 
-
-
-# set df col names
-colNames = ['DateTime', 'User', 'Action']
-df.columns = colNames
-
-df_In = df[df[colNames[2]].isin([fltrBadgedIn])]        # filter badging in action
-df_In = df_In[[colNames[0], colNames[1]]]               # drop the action col - no need to carry it around
-
-# knocks out the exclude users
-df_In = removeUsers (df_In, excludeExactUsers, excludeUsersContain)
-
-
-df_Out = df[df[colNames[2]].isin([fltrBadgedOut])]    # filter badging out action
-df_Out = df_Out[[colNames[0], colNames[1]]]           # drop the action column - all related to badging out
-df_Out = removeUsers (df_Out, excludeExactUsers, excludeUsersContain)
-
-userCounts = df_In[colNames[1]].value_counts()
-#print ("="*10, 'In', [len(userCounts)], '='*10)
-#print (userCounts)
-
-print ("-" * 80)
-user_daily_checkin = []
-user_daily_checkout = []
-
-user_daily_checkin = assembleStats (df_In, userCounts.index, 'CheckIn')
-
-userCounts = df_Out[colNames[1]].value_counts()
-#print ("="*10, 'Out',[len(userCounts)], '='*10)
-#print (userCounts)
-
-user_daily_checkout = assembleStats (df_Out, userCounts.index, strOut='CheckOut', sortAscending=False)      
-
-imax = len(user_daily_checkin)
-timein_users = [user_daily_checkin[i][0] for i in range(imax)]
-timein_median = [user_daily_checkin[i][4] for i in range(imax)]
-
-imax= len(user_daily_checkout)
-timeout_users = [user_daily_checkout[i][0] for i in range(imax)]
-timeout_median = [user_daily_checkout[i][4] for i in range(imax)]
-
-### merge the list before plotting
-sMedianTimeIn  = 'MedianTimeIn'
-sMedianTimeOut = 'MedianTimeOut'
-dfUserTimeIn  = pd.DataFrame(timein_median,  index=timein_users,  columns=[sMedianTimeIn])
-dfUserTimeOut = pd.DataFrame(timeout_median, index=timeout_users, columns=[sMedianTimeOut])
-dfMerged = pd.merge (dfUserTimeIn, dfUserTimeOut, 
-                     how='outer',
-                     left_index=True,
-                     right_index=True)
-
-# remove NaN from merged dataframe
-dfMerged.fillna(tm(0,0,0), inplace=True)
-
-barplot.BarPlotTime(dfMerged)
-
-# exports the merged dataframe to csv
+# do we want to export dataframe to csv, if so - what's the output csv filename
 bExport = False
 bOK, exportFile = appIni.get_sectionKeyValues (sectionNames['Exports'], keyNames['exportFile'])
 if (bOK == False):
@@ -290,9 +293,9 @@ if (bOK == False):
               'No export')
 else:
     exportFile = exportFile.strip()
-    if (exportFile != '' and exportFile.startswith(tuple('1tT')) ):
+    if (exportFile != '' and exportFile.startswith(tuple('1tTyY')) ):
         bExport = True
-    
+
 if (bExport):
     bOK, expFileName = appIni.get_sectionKeyValues (sectionNames['Exports'], keyNames['exportFileName'])
     if (bOK == False):
@@ -306,4 +309,19 @@ if (bExport):
     appLog.logMsg (__name__,
                    appLog._iINFO,
                    "Exporting 'median' dataframe to '{0}'".format(expFileName))
-    exports.export2CSV (dfMerged, expFileName)
+
+
+# hard wired the column names
+colNames = ['DateTime', 'User', 'Action']
+
+
+# Sef test ---
+if (__name__ == '__main__'):
+    dfDB = loadDataFrameFromDB()
+    dfUsersMedian = analyzeUsersMedian (dfDB)
+    
+    barplot.BarPlotTime(dfUsersMedian)
+
+    if (bExport):
+        exports.export2CSV (dfUsersMedian, expFileName)
+
