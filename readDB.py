@@ -17,8 +17,8 @@ import appDB
 import appLogging as appLog
 import readIni as appIni
 
-# select datestamp from AccessLog order by datestamp asc limit 5
 
+# =============================================================================
 def convTimeObjToSeconds (_tObj):
       return (_tObj.hour * 3600 +
               _tObj.minute * 60 +
@@ -54,7 +54,6 @@ def breakupDateTime (d):
 ### Input args:
 ###   dfBadging - (input) dataframe, either badge-in or badge-out from db
 ###   userlist - (input) list, unique users (the index of userCounts)
-###   strOut - (input) for debugging purposes (default = 'Checkin')
 ###   sortAscending - (input) True for checkin, False (must be passed in) for checkout
 ### 
 ### Return:
@@ -73,41 +72,43 @@ def breakupDateTime (d):
 ###   - list of corresponding time (checkin/checkout) in seconds (size is the same as above) - so we can calculate the median (below)
 ###   - median time of checkin/checkout (size 1)
 ### 
-def assembleStats (dfBadging, userList, strOut='Checkin', sortAscending=True):
-#      userList = userCounts.index
-      userBadging = []
-      for eachUser in userList:
-            _datePart = []
-            _timePart = []
-            _timePartInSec = []
+def assembleRawStats (dfBadging, userList, sortAscending=True):
+    appLog.logMsg(__name__, appLog._iINFO, "assembleRawStats <Begins>")
+
+    userBadging = []
+    for eachUser in userList:
+        _datePart = []
+        _timePart = []
+        _timePartInSec = []
       
-            df_user = dfBadging[dfBadging['User'].isin([eachUser])]
-            df_user = df_user.sort_values (by='DateTime', ascending=sortAscending)
-            workingDate = dt2(1970,1,1)
-            
-#            print ([eachUser], '-' *4, strOut, 'Date/Time', (len(df_user)))
-            ##
-            ## For checkin, need to take the "earliest" time for the day
-            ## For checkout, need to take the "lastest" time for the day
-            ##
-            for i in range(len(df_user)):
-                  ck_in_date, ck_in_time = breakupDateTime (convToDateTimeObj(df_user.iat[i,0]))
-                  if (not isSameDay (workingDate, ck_in_date)):
-                        _datePart.append(ck_in_date)
-                        _timePart.append(ck_in_time)
-                        _timePartInSec.append (convTimeObjToSeconds(ck_in_time))
-#                        print (ck_in_date, '~'*3, ck_in_time)
-                        workingDate = ck_in_date
-                        
-      
-            ## now add these tuples into the list
-            _median_checkin = convSecondsToTimeObj (statistics.median (_timePartInSec))
-            userBadging.append ([eachUser, _datePart, _timePart, _timePartInSec, _median_checkin])
-            
-      return userBadging      
+        ##
+        ## For checkin, need to take the "earliest" time for the day
+        ## For checkout, need to take the "lastest" time for the day
+        ##
+        df_user = dfBadging[dfBadging[colNames[1]].isin([eachUser])]
+        df_user = df_user.sort_values (by=colNames[0], ascending=sortAscending)
+        workingDate = dt2(1970,1,1)
+
+        for eachBadgeEvent in df_user[colNames[0]]:
+            evDate, evTime = breakupDateTime (convToDateTimeObj (eachBadgeEvent))
+            if (not isSameDay(workingDate, evDate)):
+                _datePart.append(evDate)
+                _timePart.append(evTime)
+                _timePartInSec.append( convTimeObjToSeconds(evTime) )
+                
+                workingDate = evDate
+
+        ## now add these tuples into the list
+        _median_checkin = convSecondsToTimeObj (statistics.median (_timePartInSec))
+        userBadging.append ([eachUser, _datePart, _timePart, _timePartInSec, _median_checkin])
+
+    appLog.logMsg(__name__, appLog._iINFO, "assembleRawStats <Ends>")
+    return userBadging      
 
 # =============================================================================
 # input arg - strSearch
+#     usually this is read and parsed from config.ini 
+#      -- we want to remove specific users from our dataframe that are not employees
 #     a search string - if the beginning and/or end is a '*' - return True and a copy of the string without leading & trailing '*'
 #     otherwise returns False
 def isSubstringSearch (strSearch):
@@ -125,7 +126,7 @@ def isSubstringSearch (strSearch):
     return bSubString, strSearch[iStart:iEnd]
 
 # =============================================================================
-#    dfThis = dataframe - must contain a column named "User" (colNames[1] variable)
+#    dfThis = dataframe - must contain a named column "User" (colNames[1] variable)
 #    exactMatch, containMatch - lists that contain users to be removed from 'dfThis'
 def removeUsers (dfThis, exactMatch, containMatch):
 
@@ -154,56 +155,69 @@ def loadDataFrameFromDB():
     # Closes the DB
     appDB.disconnectDB(dbConn)
 
+    # set df col names
+    df.columns = colNames
     return df
 
 # =============================================================================
-#    input arg:
-#      dfThis - dataframe with these columns 'DateTime', 'User', 'Action'
-#    returns: merged dataframe (cleansed)
+# this function assumes the input dataframe is fresh from db
+#    with 3 columns: 'DateTime', 'User', 'Action'
+# - will split it into 2 groups - In and Out
+# - will refresh and populate the "cached" lists --  _cachedUserStatsIn, _cachedUserStatsOut
+#    
+#    if input is None AND one of the cached list is empty, then we will have to 
+#    refresh the cache from the db!!!
 # =============================================================================
-def analyzeUsersMedian (dfThis):
-    appLog.logMsg (__name__,
-                   appLog._iINFO,
-                   "analyzeUsersMedian - <Begins>")
-    
-    # set df col names
-    dfThis.columns = colNames
-    
-    df_In = dfThis[ dfThis[colNames[2]].isin([fltrBadgedIn]) ]        # filter badging in action
-    df_In = df_In[[colNames[0], colNames[1]]]               # drop the action col - no need to carry it around
+def collectStats (dfThis=None):
+    global _cachedUserStatsIn, _cachedUserStatsOut
+    appLog.logMsg (__name__, appLog._iINFO, "collectStats - <Begins>")
+
+    if (dfThis is None and
+                (len(_cachedUserStatsIn) == 0 and len(_cachedUserStatsOut) == 0)):
+        dfThis = loadDataFrameFromDB()
     
     # knocks out the exclude users
-    df_In = removeUsers (df_In, excludeExactUsers, excludeUsersContain)
+    dfThis = removeUsers (dfThis, excludeExactUsers, excludeUsersContain)
+
+    # applies filter to "Action" column
+    df_In = dfThis[ dfThis[colNames[2]].isin([fltrBadgedIn]) ]
     
+    # drop the "Action" column, no need to carry it around
+    del df_In[colNames[2]]
     
-    df_Out = dfThis[ dfThis[colNames[2]].isin([fltrBadgedOut]) ]    # filter badging out action
-    df_Out = df_Out[ [colNames[0], colNames[1]] ]           # drop the action column - all related to badging out
-    df_Out = removeUsers (df_Out, excludeExactUsers, excludeUsersContain)
+    df_Out = dfThis[ dfThis[colNames[2]].isin([fltrBadgedOut]) ]
+    del df_Out[colNames[2]]
     
-    userCounts = df_In[colNames[1]].value_counts()
-    #print ("="*10, 'In', [len(userCounts)], '='*10)
-    #print (userCounts)
+    userCountsIn = df_In[colNames[1]].value_counts()
+    user_daily_checkin = assembleRawStats (df_In, userCountsIn.index)
     
-    print ("-" * 80)
-    user_daily_checkin = []
-    user_daily_checkout = []
+    userCountsOut = df_Out[colNames[1]].value_counts()
+    user_daily_checkout = assembleRawStats (df_Out, userCountsOut.index, sortAscending=False)      
     
-    user_daily_checkin = assembleStats (df_In, userCounts.index, 'CheckIn')
+    # save to cache
+    _cachedUserStatsIn  = user_daily_checkin.copy()
+    _cachedUserStatsOut = user_daily_checkout.copy()
+
+    appLog.logMsg (__name__,
+                   appLog._iINFO,
+                   "collectStats - <Ends>")
+
+
+# =============================================================================
+#    input arg: none
+#    returns: dataframe - user median timeIn and timeOut
+# =============================================================================
+def analyzeUsersMedian ():
+    appLog.logMsg (__name__, appLog._iINFO, "analyzeUsersMedian - <Begins>")
     
-    userCounts = df_Out[colNames[1]].value_counts()
-    #print ("="*10, 'Out',[len(userCounts)], '='*10)
-    #print (userCounts)
+    imax = len(_cachedUserStatsIn)
+    timein_users = [_cachedUserStatsIn[i][0] for i in range(imax)]
+    timein_median = [_cachedUserStatsIn[i][4] for i in range(imax)]
     
-    user_daily_checkout = assembleStats (df_Out, userCounts.index, strOut='CheckOut', sortAscending=False)      
-    
-    imax = len(user_daily_checkin)
-    timein_users = [user_daily_checkin[i][0] for i in range(imax)]
-    timein_median = [user_daily_checkin[i][4] for i in range(imax)]
-    
-    imax= len(user_daily_checkout)
-    timeout_users = [user_daily_checkout[i][0] for i in range(imax)]
-    timeout_median = [user_daily_checkout[i][4] for i in range(imax)]
-    
+    imax= len(_cachedUserStatsOut)
+    timeout_users = [_cachedUserStatsOut[i][0] for i in range(imax)]
+    timeout_median = [_cachedUserStatsOut[i][4] for i in range(imax)]
+
     ### merge the list before plotting
     sMedianTimeIn  = 'MedianTimeIn'
     sMedianTimeOut = 'MedianTimeOut'
@@ -232,17 +246,24 @@ def analyzeUsersMedian (dfThis):
 # =============================================================================
 # read config.ini
 # =============================================================================
-sectionNames = {'Inputs'  : 'Inputs',
-                'Users'   : 'Users',
-                'Exports' : 'Exports'}
-keyNames = {'badgeIn'        : 'badgeIn',
-            'badgeOut'       : 'badgeOut',
-            'exclude'        : 'exclude',
-            'exportFile'     : 'exportFile',
-            'exportFileName' : 'exportFileName'}
-defaultFilters = {'In'              :'Access Granted',
-                  'Out'             :'Exit Granted',
-                  'ExportFileName'  : 'Badge In-Out Median.csv'}
+appLog.logMsg(__name__, appLog._iINFO, "Init...<Begins>")
+
+sectionNames =   {   'Inputs'          : 'Inputs',
+                     'Users'           : 'Users',
+                     'Exports'         : 'Exports'
+                 }
+
+keyNames =       {   'badgeIn'         : 'badgeIn',
+                     'badgeOut'        : 'badgeOut',
+                     'exclude'         : 'exclude',
+                     'exportFile'      : 'exportFile',
+                     'exportFileName'  : 'exportFileName'        
+                 }
+
+defaultFilters = {   'In'              :'Access Granted',
+                     'Out'             :'Exit Granted',
+                     'ExportFileName'  : 'Badge In-Out Median.csv'
+                 }
 
 # sets the Badge-In filter string
 bOK, fltrBadgedIn = appIni.get_sectionKeyValues (sectionNames['Inputs'], keyNames['badgeIn'])
@@ -306,22 +327,40 @@ if (bExport):
     if (expFileName is None or expFileName.strip() == ''):
         expFileName = defaultFilters['ExportFileName']
     
-    appLog.logMsg (__name__,
-                   appLog._iINFO,
-                   "Exporting 'median' dataframe to '{0}'".format(expFileName))
 
 
 # hard wired the column names
 colNames = ['DateTime', 'User', 'Action']
 
+# cached user stats
+_cachedUserStatsIn = []
+_cachedUserStatsOut = []
+
+appLog.logMsg(__name__, appLog._iINFO, "Init...<Ends>")
 
 # Sef test ---
 if (__name__ == '__main__'):
     dfDB = loadDataFrameFromDB()
-    dfUsersMedian = analyzeUsersMedian (dfDB)
+
+    # remove users that we don't care about
+    # not really need to since collectStats() will do removeUsers()
+    # this is just to demonstrate that a clien can use this helper
+    dfEmployees = removeUsers (dfDB, excludeExactUsers, excludeUsersContain)
+
+    # assemble and cache user stats
+    # if called without df argument, we may load the data from db (if one or both of the cached list is empty)
+    # That means the client code can just call this without doing the 2 calls before
+    collectStats (dfEmployees)
+
+    # analyzes each employee's median time in & out 
+    dfUsersMedian = analyzeUsersMedian ()
     
     barplot.BarPlotTime(dfUsersMedian)
 
     if (bExport):
+        appLog.logMsg (__name__,
+                   appLog._iINFO,
+                   "Exporting 'median' dataframe to '{0}'".format(expFileName))
+        
         exports.export2CSV (dfUsersMedian, expFileName)
 
