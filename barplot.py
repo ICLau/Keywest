@@ -41,84 +41,128 @@ import appDB
 #   - col0 = median checkin time (DateTime Time obj - no date part)
 #   - col1 = median checkout time (DateTime Time obj - no date part)
 # =============================================================================
-def BarPlotTime (dfUserMedians):
-      n = len(dfUserMedians)
-      ind = np.arange(n)  # the x locations for the groups
-      width = 0.8         # the width of the bars
-      
-      myDay = datetime.date (2017,1,1)    # static date to assemble a datetime object for matplotlib barplot
-      yTemp  = dfUserMedians[dfUserMedians.columns[0]].tolist()
-      yTemp2 = dfUserMedians[dfUserMedians.columns[1]].tolist()
-      y  = [datetime.datetime.combine(myDay, t) for t in yTemp]
-      y2 = [datetime.datetime.combine(myDay, t) for t in yTemp2]
 
-      # MUST use matplotlib "numeric" dates
-      ymDt  = [mdates.date2num(d) for d in y]
-      y2mDt = [mdates.date2num(d) for d in y2]
+# --- Test codes ---    
+tRects = None
+tt_labels = []
+names = None
+mTimeFrom = None
+mTimeTo = None
+# --- Test codes ---    
+
+def BarPlotTime (dfUserMedians):
+    n = len(dfUserMedians)
+    ind = np.arange(n)  # the x locations for the groups
+    width = 0.8         # the width of the bars
       
-      missingTime = tm(0,0,0)
-      for i in range(len(y)):
-          if yTemp[i] == missingTime or yTemp2[i] == missingTime:
-              ymDt[i] = y2mDt[i] = 0
-          else:
-              y2mDt[i] -= ymDt[i]
+    myDay = datetime.date (2017,1,1)    # static date to assemble a datetime object for matplotlib barplot
+    yTemp  = dfUserMedians[dfUserMedians.columns[0]].tolist()
+    yTemp2 = dfUserMedians[dfUserMedians.columns[1]].tolist()
+    y  = [datetime.datetime.combine(myDay, t) for t in yTemp]
+    y2 = [datetime.datetime.combine(myDay, t) for t in yTemp2]
+
+    # MUST use matplotlib "numeric" dates
+    ymDt  = [mdates.date2num(d) for d in y]
+    y2mDt = [mdates.date2num(d) for d in y2]
+      
+    missingTime = tm(0,0,0)
+    for i in range(len(y)):
+        if yTemp[i] == missingTime or yTemp2[i] == missingTime:
+            ymDt[i] = y2mDt[i] = 0
+        else:
+            y2mDt[i] -= ymDt[i]
                   
       
-      fig, ax = plt.subplots()
+    fig, ax = plt.subplots()
 #      rects1 = ax.bar (ind, ymDt, width, color='r', label="Time In")
-      rects2 = ax.bar (ind + width/2, y2mDt, width, bottom=ymDt, color='b', label="Time In/Out")
+    rects2 = ax.bar (ind + width/2, y2mDt, width, bottom=ymDt, color='b', label="Time In/Out")
+    
+# --- Test codes ---    
+    global tRects, tt_labels, names, mTimeFrom, mTimeTo
+    tRects = rects2
+    
+    names = (dfUserMedians.index).tolist()
+    mTimeFrom = yTemp.copy()
+    mTimeTo = yTemp2.copy()
+    
+    # find a better way to assemble the tooltip text
+    for i in range(len(names)):
+        tt_labels.append( "{0}\\n{1:%I}:{1:%M}{1:%p}\\n{2:%I}:{2:%M}{2:%p}".format(names[i],mTimeFrom[i],mTimeTo[i]) )
+    
+    for i, (item, label) in enumerate(zip(tRects, tt_labels)):
+        patch = ax.add_patch(item)
+        annotate = ax.annotate(tt_labels[i], xy=item.get_xy(), xytext=(0, 0),
+                               textcoords='offset points', color='w', ha='left',
+                               fontsize=9, bbox=dict(boxstyle='round, pad=.5',
+                                                     fc=(.1, .1, .1, .92),
+                                                     ec=(1., 1., 1.), lw=1,
+                                                     zorder=1))
+    
+        ax.add_patch(patch)
+        patch.set_gid('mypatch_{:03d}'.format(i))
+        annotate.set_gid('mytooltip_{:03d}'.format(i))
+
+
+# --- Test codes ---    
       
-      # add some text for labels, title and axes ticks
-      ax.set_ylabel('Time')
-      ax.set_title('Median Time In & Out (' + 
-                        minDate.strftime('%b-%d, %Y') +
-                        ' to '+
-                        maxDate.strftime('%b-%d, %Y') +
-                        ')')
-      ax.set_xticks(ind + width / 2)
-      ax.set_xticklabels(dfUserMedians.index)
-      for xTickLabel in ax.xaxis.get_ticklabels():
-          xTickLabel.set_rotation (85)
+    # add some text for labels, title and axes ticks
+    ax.set_ylabel('Time')
+    ax.set_title('Median Time In & Out (' + 
+                    minDate.strftime('%b-%d, %Y') +
+                    ' to '+
+                    maxDate.strftime('%b-%d, %Y') +
+                    ')')
+    ax.set_xticks(ind + width / 2)
+    ax.set_xticklabels(dfUserMedians.index)
+    for xTickLabel in ax.xaxis.get_ticklabels():
+        xTickLabel.set_rotation (85)
       
-      ax.legend()
-      #This must be called before the locator/formatter
-      ax.yaxis_date()
-      ax.yaxis.set_major_locator(HourLocator())
-      ax.yaxis.set_major_formatter(DateFormatter('%I:%M%p'))
+    ax.legend()
+    #This must be called before the locator/formatter
+    ax.yaxis_date()
+    ax.yaxis.set_major_locator(HourLocator())
+    ax.yaxis.set_major_formatter(DateFormatter('%I:%M%p'))
       
-      #autolabel(rects1)
-      #autolabel(rects2)
+    #autolabel(rects1)
+    #autolabel(rects2)
       
-      startHour = iStartHour  # y min at 7am
-      endHour   = iEndHour    # used to be 23:59, but now is configurable via ini, defaults to 7pm
-      minYTime = datetime.datetime.combine (myDay, tm(startHour,0,0))
-      maxYTime = datetime.datetime.combine (myDay, tm(endHour,0,0))
-      plt.ylim (minYTime, maxYTime)
+    startHour = iStartHour  # y min at 7am
+    endHour   = iEndHour    # used to be 23:59, but now is configurable via ini, defaults to 7pm
+    minYTime = datetime.datetime.combine (myDay, tm(startHour,0,0))
+    maxYTime = datetime.datetime.combine (myDay, tm(endHour,0,0))
+    plt.ylim (minYTime, maxYTime)
       
-      myYTicks = []
-      yTickHrApart = iHoursApart
-      numberOfTicks = int((endHour-startHour)/(yTickHrApart))+1
-      for eachTick in range(numberOfTicks):
-          myYTicks.append(datetime.datetime.combine(myDay,tm(eachTick*yTickHrApart+startHour,0,0)))
+    myYTicks = []
+    yTickHrApart = iHoursApart
+    numberOfTicks = int((endHour-startHour)/(yTickHrApart))+1
+    for eachTick in range(numberOfTicks):
+        myYTicks.append(datetime.datetime.combine(myDay,tm(eachTick*yTickHrApart+startHour,0,0)))
       
-      plt.yticks (myYTicks)
+    plt.yticks (myYTicks)
       
-      if (iShowGrid == 1): 
-          plt.grid(axis='x', linestyle='solid')
-      elif (iShowGrid == 2):
-          plt.grid(axis='y', linestyle='solid')
-      elif (iShowGrid == 3):
-          plt.grid(axis='both', linestyle='solid')
-      else:
-          plt.grid(b=None)
-            
-      plt.subplots_adjust (top=0.9,
-                           bottom=0.35,
-                           left=0.1,
-                           right=0.97,
-                           hspace=0.2,
-                           wspace=0.2)      
-      plt.show()
+    if (iShowGrid == 1): 
+        plt.grid(axis='x', linestyle='solid')
+    elif (iShowGrid == 2):
+        plt.grid(axis='y', linestyle='solid')
+    elif (iShowGrid == 3):
+        plt.grid(axis='both', linestyle='solid')
+    else:
+        plt.grid(b=None)
+
+
+    shadeBegins = datetime.datetime.combine(myDay, tm(iShadeStartHour,0,0))
+    shadeEnds   = datetime.datetime.combine(myDay, tm(iShadeEndHour  ,0,0))
+    
+    # alpha indicates transparency
+    plt.axhspan(shadeBegins, shadeEnds, facecolor='0.8', alpha=0.3)
+
+    plt.subplots_adjust (top=0.9,
+                         bottom=0.35,
+                         left=0.1,
+                         right=0.97,
+                         hspace=0.2,
+                         wspace=0.2)      
+    plt.show()
       
 # =============================================================================
 # main
@@ -225,16 +269,16 @@ if (__name__ == '__main__'):
     import pandas as pd
 
     users = ['Albert',
-    		 'Betty',
-    		 'Charles',
-    		 'David',
-    		 'Edmond',
-    		 'Fiona',
-    		 'George',
-    		 'Heidi',
-    		 'Ilia',
-    		 'Joanna']
-    		 
+             'Betty',
+             'Charles',
+             'David',
+             'Edmond',
+             'Fiona',
+             'George',
+             'Heidi',
+             'Ilia',
+             'Joanna']
+             
     meanTime = [  [tm(7,50), tm(17,50)],
                   [tm(8,33), tm(17,50)],
                   [tm(9,12), tm(0,0)  ],
@@ -247,7 +291,7 @@ if (__name__ == '__main__'):
                   [tm(8,45), tm(16,45)]
                 ]
  
-    			
+                
 
     print ('size of users = {0} meanTime = {1}'.format(len(users), len(meanTime)))
     print("iStartHour = {0}".format(iStartHour))
