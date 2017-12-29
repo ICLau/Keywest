@@ -8,6 +8,7 @@ Created on Tue Dec 19 08:53:53 2017
 import sqlite3
 from sqlite3 import Error
 from datetime import datetime as dt
+from datetime import time as tm
 
 import readIni as myIni
 import appLogging as appLog
@@ -21,12 +22,36 @@ bOK, doorDB = myIni.get_sectionKeyValues ('CleansedData', 'dbFile')
 if (bOK == False or doorDB.strip() ==''):
     doorDB = defaultDBName
 
+# table = AccessLog
 strCreateTableSQL = "CREATE TABLE IF NOT EXISTS {0} (datestamp TEXT, user TEXT, action TEXT, PRIMARY KEY (user, datestamp))".format(defaultTableName)
 strCheckDateTimeUserSQL = "SELECT datestamp, user FROM AccessLog WHERE datestamp = '{0}' AND user = '{1}'"
 strInsertBadgeRecSQL = "INSERT INTO AccessLog (datestamp, user, action) VALUES (?, ?, ?) "
 strReadAllRecs = 'SELECT datestamp, user, action FROM {0}'.format(defaultTableName)
 strSelectMINdateSQL = "select MIN(datestamp) from {0}".format(defaultTableName)
 strSelectMAXdateSQL = "select MAX(datestamp) from {0}".format(defaultTableName)
+
+# table = user
+defaultUserTable = 'user'
+strCreateUserTableSQL = """CREATE TABLE `users` (
+                        	`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+                        	`name`	TEXT NOT NULL UNIQUE
+                        );"""
+strFindUserSQL = "SELECT id, name FROM users WHERE name = '{0}' "
+strFindUserByIdSQL = "SELECT id, name FROM users WHERE id = {0} "
+strInsertUserSQL = "INSERT INTO users (name) VALUES (?) "
+strGetAllUsersSQL = 'SELECT id, name FROM users '
+
+
+# table = userTimes
+defaultUserTimesTable = 'userTimes'
+strCreateUserTimesTableSQL = """ CREATE TABLE `userTimes` (
+                            	`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                            	`fk_userid`	INTEGER NOT NULL,
+                            	`time_io`	TEXT NOT NULL,
+                            	`t_type`	TEXT NOT NULL,
+                                FOREIGN KEY (fk_userid) REFERENCES users (id)
+                            ); """
+
 
 # =============================================================================
 def disconnectDB (conn):
@@ -52,7 +77,7 @@ def disconnectDB (conn):
     
 # =============================================================================
 """ creates a db table from the createTableSQL
-oaram dbConn - connection obj
+param dbConn - connection obj
 param createTableSQL - a CREATE TABLE statement
 """
 def createTable (dbConn, createTableSQL):
@@ -82,6 +107,9 @@ def connectDB (dbName):
     dbConnList.append (dbConn)
 
     createTable (dbConn, strCreateTableSQL)
+    createTable (dbConn, strCreateUserTableSQL)
+    createTable (dbConn, strCreateUserTimesTableSQL)
+    
     appLog.logMsg(__name__,
                   appLog._iINFO,
                   "~~~ db connected ({0})".format(dbName))
@@ -199,7 +227,7 @@ def insertBadgeRecord (dbConn, tVars):
 
     appLog.logMsg(__name__,
                   appLog._iDEBUG,
-                  "insertBadgeRecord() -- Badge record {0}/{1} already exists in db - NOT inserted".format(tVars[0], tVars[1]))
+                  "insertBadgeRecord() -- Badge record {0}/{1} already exists in db - NOT inserted.".format(tVars[0], tVars[1]))
     return 0
 
 # =============================================================================
@@ -215,46 +243,326 @@ def readAllBadgeRecords (dbConn):
     return dbCur.fetchall()
 
 # =============================================================================
+# user table
+# =============================================================================
+    
+def userExist(dbConn, username):
+    assert (username.strip() != '')
+    strSQL = strFindUserSQL.format(username)
+
+    return recordExist(dbConn, strSQL)    
+
+
+# =============================================================================
+#    input arg: username - str
+#    returns: unique rowId of user
+#    otherwise: None
+def insertUser (dbConn, username):
+    assert (username.strip() != '')
+    
+    username = username.strip()
+    if not userExist (dbConn, username):
+        return insertRecord (dbConn, strInsertUserSQL, (username,))
+    
+    appLog.logMsg(__name__,
+                  appLog._iDEBUG,
+                  "insertUserRecord() - user '{0}' already exists in db - NOT inserted.".format(username))
+    return None
+
+# =============================================================================
+#    input arg: username - str
+#    returns: 
+#        row - tuple (int:rowId, str:username)
+#        None if not found or error
+def getUserByName (dbConn, username):
+    username = username.strip()
+    assert (username != '')
+    strSQL = strFindUserSQL.format(username)
+
+    try:
+        dbCur = dbConn.cursor()
+        dbCur.execute (strSQL)
+        rows = dbCur.fetchone()
+        return rows
+    except Error as e:
+        appLog.logMsg(__name__,
+                      appLog._iCRITICAL,
+                      "CRITICAl exception - getUserByName()")
+        print (e)
+        return None
+
+# =============================================================================
+#        input arg: int:userId
+#        returns:
+#            row - tuple (int:rowId, str:username)
+#            None if not found or error
+def getUserById (dbConn, userId):
+    assert (userId > 0)
+    strSQL = strFindUserByIdSQL.format(userId)
+
+    try:
+        dbCur = dbConn.cursor()
+        dbCur.execute (strSQL)
+        rows = dbCur.fetchone()
+        return rows
+    except Error as e:
+        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAl exception - getUserById()")
+        print (e)
+        return None
+
+# =============================================================================
+#        Need testing
+def fetchAllUsers (dbConn):
+    dbCur = dbConn.cursor()
+    dbCur.execute(strGetAllUsersSQL)
+    return dbCur.fetchall()
+
+
+
+# =============================================================================
+# userTimes table
+# =============================================================================
+# =============================================================================
+#    Need testing
+#    fetches all userTime records for ONE particular user
+#    input args:
+#        user = can be int:userID or str:username
+#        aType = str 
+#            default is None - which fetches both "in" and "Out" Access Types
+#            "In" - only fetches "In" Access Type for this user
+#            "Out" - only fetches "Out" Access Type for this user
+#            ?? unrecognized aType str will set it to Default (None)
+#    return:
+#        list - tuple (id, fk_userId, time_io, t_type)
+#        None if error
+def fetchAllUserTimes (conn, user, aType=None):
+    bUseId = True if type(user).__name__ == 'int' else False
+    if (bUseId):
+        userRow = getUserById(conn, user)
+    else:
+        userRow = getUserByName(conn, user)
+    
+    if (userRow == None or userRow == 0):
+        return None
+
+    # aType == None (default) => retieves both "In" and "Out" access types
+    # aType should either be "In" or "Out" -- value stored in db
+    if (aType != None):
+        if (type(aType).__name__ != 'str' and (aType != 'In' and aType != 'Out')):
+            aType = None
+    strSelectUserTimesSQL = "SELECT id, fk_userid, time_io, t_type FROM userTimes WHERE fk_userid = {0} "
+    strSQL = strSelectUserTimesSQL.format(userRow[0])
+    
+    if aType != None:
+        strAddPredicate = " AND t_type = '{0}'  "
+        if aType == 'In' or aType == 'Out':
+            strSQL = strSQL + strAddPredicate.format(aType)
+
+    # look up the times from userTimes table and return a list
+    try:
+        dbCur = conn.cursor()
+        dbCur.execute(strSQL)
+        rows = dbCur.fetchall()
+        return rows
+    except Error as e:
+        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAL exception - lookupUserTimes()")
+        print (e)
+    
+# =============================================================================
+# =============================================================================
+# check to see if a userTime record exist in db
+#  input arg: tVars => tuple (usernameORuserId, strTime, "In")
+#  return: tuple (int:rowId, int:fk_userId, str:time_io, str:t_type)
+#          None if not found or error
+def userTimeExist (conn, tVars):
+    user = tVars[0]
+    bUseId = True if type(user).__name__ == 'int' else False
+    if (bUseId):
+        userRow = getUserById(conn, user)
+    else:
+        userRow = getUserByName(conn, user)
+    
+    if (userRow == None or userRow == 0):
+        return None
+
+    userId = userRow[0]
+    strSQL = "SELECT id, fk_userid, time_io, t_type FROM userTimes WHERE fk_userid = {0} AND time_io = '{1}' AND t_type = '{2}' ".format(userId, tVars[1], tVars[2])
+    try:
+        dbCur = conn.cursor()
+        dbCur.execute(strSQL)
+        row = dbCur.fetchone()
+        return row
+    except Error as e:
+        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAL exception - lookupUserTimes()")
+        print (e)
+        return None
+
+# =============================================================================
+#    input arg
+#        tVars - tuple (int or str:userId, str:strTime, str:aTag)
+#    return
+#        rowId of inserted record
+#        None if error or NOT inserted (already exists in db)
+#        
+#    NOTE: if useId in input arg is an Id, BUT the user itself is NOT in db,
+#          then we are NOT able to insert the user for the client code since we
+#          NEED a username in string to do that!
+def insertUserTime(conn, tVars):
+    # tVars must be (userId, strTime, "In")
+    assert (tVars != None)
+    assert (len(tVars) == 3)
+    
+    # check to see if this entry is already in db
+    rows = userTimeExist (conn, tVars)
+    if (rows == None): # userTime doesn't exist, insert it
+
+        # if user not exists, insert the user        
+        if (type(tVars[0]).__name__ != 'int'):
+            userRow = getUserByName(conn, tVars[0])
+        else:
+            userRow = getUserById (conn, tVars[0])
+        
+        if userRow == None:
+            # didn't find the user
+            # if tVars[0] is an ID, we cannot insert a user with ID, need a name!!!
+            if (type(tVars[0]).__name__ == 'int'):
+                appLog.logMsg(__name__, appLog._iERROR, "insertUserTime() - userID passed in but User not found in db. tVars[{0}]".format(tVars))
+                return None
+            fkId = insertUser (conn, tVars[0])
+        else:
+            fkId = userRow[0]
+        
+        # insert userTime record
+        # now we have the user_fkId
+        strInsertUserTimeSQL = "INSERT INTO userTimes (fk_userid, time_io, t_type) VALUES (?, ?, ?) "
+        ttVars = (fkId,tVars[1],tVars[2])
+        return insertRecord (conn, strInsertUserTimeSQL, ttVars)
+        
+    else:  # userTime already exists in db, do NOT insert again
+        appLog.logMsg(__name__, appLog._iINFO, "insertUserTime() - record already in DB: tVars:({0})".format(tVars))
+        
+    return None
+    
+        
+        
+# =============================================================================
+# =============================================================================
+# =============================================================================
 
 if (__name__ == '__main__'):
-    conn = connectDB('DoorAccess.db')
+#    conn = connectDB('DoorAccess.db')
+#    
+#    createTableSQL = """CREATE TABLE IF NOT EXISTS AccessLog (
+#                           datestamp TEXT, 
+#                           user TEXT, 
+#                           action TEXT, 
+#                           PRIMARY KEY (user, datestamp)
+#                        );"""
+#
+#    createTable (conn, createTableSQL)
+
+    conn = connectBadgeDB()
     
-    createTableSQL = """CREATE TABLE IF NOT EXISTS AccessLog (
-                           datestamp TEXT, 
-                           user TEXT, 
-                           action TEXT, 
-                           PRIMARY KEY (user, datestamp)
-                        );"""
-
-    createTable (conn, createTableSQL)
-
-    dbTableName = 'AccessLog'
-    selectMINdateSQL = "select MIN(datestamp) from {0}".format(dbTableName)
-    minDate = selectMINDate (conn, selectMINdateSQL)
-    print ("min Date from db is: '{0}'".format(minDate))
-
-    minDate = selectMINDateTime (conn, selectMINdateSQL)
-    print ("min DateTime from db is: '{0}'".format(minDate))
-
-    print ("dbConnList len = {0}".format(len(dbConnList)))
-    print ("Maximum db connections = {0}".format(_maxConn))
-
-    selectMAXdateSQL = "select MAX(datestamp) from {0}".format(dbTableName)
-    maxDate = selectMAXDate (conn, selectMAXdateSQL)
-    print ("max Date from db is: '{0}'".format(maxDate))
-
-    maxDate = selectMAXDateTime (conn, selectMAXdateSQL)
-    print ("max DateTime from db is: '{0}'".format(maxDate))
-
-    userName = 'Temp-User5'
-    bExist = badgeEventExist (conn, (dt(2017,12,25,13,14),userName, userName))
+    #--- Test AccessLog table
+    bTestAccessLogTable = False
+    if (bTestAccessLogTable):
+        dbTableName = 'AccessLog'
+        selectMINdateSQL = "select MIN(datestamp) from {0}".format(dbTableName)
+        minDate = selectMINDate (conn, selectMINdateSQL)
+        print ("min Date from db is: '{0}'".format(minDate))
     
-    if (False):
-#        insertSQL = 'INSERT INTO AccessLog (datestamp, user, action) VALUES (?, ?, ?)  '
-        tVar = (dt(2017,12,25,13,14),userName,'Access Granted')
-#        lastrowid = insertRecord(conn, strInsertBadgeRecSQL, tVar)
-        lastrowid = insertBadgeRecord (conn, tVar)
+        minDate = selectMINDateTime (conn, selectMINdateSQL)
+        print ("min DateTime from db is: '{0}'".format(minDate))
     
+        print ("dbConnList len = {0}".format(len(dbConnList)))
+        print ("Maximum db connections = {0}".format(_maxConn))
+    
+        selectMAXdateSQL = "select MAX(datestamp) from {0}".format(dbTableName)
+        maxDate = selectMAXDate (conn, selectMAXdateSQL)
+        print ("max Date from db is: '{0}'".format(maxDate))
+    
+        maxDate = selectMAXDateTime (conn, selectMAXdateSQL)
+        print ("max DateTime from db is: '{0}'".format(maxDate))
+    
+        userName = 'Temp-User5'
+        dTime = dt(2017,12,25,13,14)
+        bExist = badgeEventExist (conn, (dTime,userName))
+        
+        if (not bExist):
+    #        insertSQL = 'INSERT INTO AccessLog (datestamp, user, action) VALUES (?, ?, ?)  '
+            tVar = (dt(2017,12,25,13,14),userName,'Access Granted')
+    #        lastrowid = insertRecord(conn, strInsertBadgeRecSQL, tVar)
+            lastrowid = insertBadgeRecord (conn, tVar)
+            print ("lastrowid = {0}".format(lastrowid))
+        else:
+            print("badge event : '{0}' '{1}' already exists in db".format(dTime, userName))
+    
+    #--------------------------------------------------------------------------
+    # Test user table
+    bTestUserTable = False
+    if (bTestUserTable):
+        userRow = getUserByName(conn, '*!*')
+        print("getUserByName(conn, '*!*') - returns: {0}".format(userRow))
+        
+        userRow = getUserById (conn, 10000)
+        print("getUserById (conn, 10000) - returns: {0}".format(userRow))
+        
+        testUser = '  Lee C   '
+        rowid = insertUser (conn, testUser)
+        print ("*"*20)
+        print ("rowId inserted = {}".format(rowid))
+        
+        if (rowid == None):
+            # user already exists, get it by name
+            print ("   getUserByName()")
+            row = getUserByName (conn, testUser)
+        else:
+            # inserted successfully, get it back by id
+            print ("   getUserById()")
+            row = getUserById (conn, rowid)
+    
+        print ('-' * 20)
+        print (row)
+        print ('-' * 20)
+    
+        rows = fetchAllUsers(conn)
+        print ('fetchAllUsers() - {0} rows returned'.format(len(rows)))
+    #    print (rows)
+
+    #--------------------------------------------------------------------------
+    # Test: userTime table
+    bTestUserTimeTable = True
+    if (bTestUserTimeTable):
+        print ('+*'*15)
+        tTime = tm(11,11,11)
+        sTime = "{0:%H}:{0:%M}:{0:%S}".format(tTime)
+        userId = 5
+        aTag = 'In'
+        tVars = (userId, sTime, aTag)
+        rowId = insertUserTime(conn, tVars)
+        print ("insertUserTime() - {0}, rowId returned = {1}".format(tVars, rowId))
+    
+        #-- invalid userId
+        userId = 50
+        tVars = (userId, sTime, aTag)
+        rowId = insertUserTime(conn, tVars)
+        print ("insertUserTime() - {0}, rowId returned = {1}".format(tVars, rowId))
+    
+        #-- new user
+        username = 'Test Insert userTime'
+        tVars = (username, sTime, aTag)
+        rowId = insertUserTime(conn, tVars)
+        print ("insertUserTime() - {0}, rowId returned = {1}".format(tVars, rowId))
+    
+        utRows = fetchAllUserTimes (conn, username, aType=None)
+        print ("# of records for '{0}' is: {1}".format(username, len(utRows)))
+    
+        userId = 5
+        utRows = fetchAllUserTimes (conn, userId)
+        assert (utRows != None)
+        print ("# of records for '{0}' is: {1}".format(getUserById(conn,userId), len(utRows)))
+
+    #--------------------------------------------------------------------------
+    # Housekeeping - close db connection
     disconnectDB (conn)
     print ("~Called disconnectDB(), now dbConnList len is: {0}".format(len(dbConnList)))
-

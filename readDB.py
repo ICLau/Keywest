@@ -6,6 +6,7 @@ Created on Sun Nov 12 16:02:32 2017
 """
 
 import pandas as pd
+import numpy as np
 from datetime import datetime as dt
 from datetime import date as dt2
 from datetime import time as tm
@@ -160,6 +161,45 @@ def loadDataFrameFromDB():
     return df
 
 # =============================================================================
+# =============================================================================
+# =============================================================================
+# =============================================================================
+# this utitlity function can also be implemented within assembleRawStats()
+# However, it is cleaner to have assembleRawStats() to do just one thing --
+# leaving this separate utility to flush the Daily In/Out times and user to the 
+# DB
+#  
+#    userDailyStats - the complex list we are tracking
+#    aTag - access Tag --> "In" or "Out"
+# =============================================================================
+def saveUserDailyBadgeTime(userDailyStats, aTag):
+    assert (aTag != None)
+    assert (type(aTag).__name__ == 'str')
+    assert (aTag.strip() != '')
+    assert (aTag == 'In' or aTag == 'Out')
+    
+    theNames = list(map(lambda n: n[0].strip(), userDailyStats))
+    theTimes  = list(map(lambda dude: [dude[2]], userDailyStats))
+    
+    conn = appDB.connectBadgeDB()
+    for eachDude in theNames:
+        # is this dude already in 'users' table
+        userRow = appDB.getUserByName(conn, eachDude)
+        if userRow == None:
+            rowid = appDB.insertUser (conn, eachDude)
+        else:
+            rowid = userRow[0]
+    
+        # make sure rowid is valid
+        idx = theNames.index(eachDude)
+        if (rowid != None and rowid > 0):
+            userTimes = theTimes[idx][0]
+            for eachTime in userTimes:
+                appDB.insertUserTime (conn, (rowid, "{0:%H}:{0:%M}:{0:%S}".format(eachTime), aTag))
+        
+    appDB.disconnectDB(conn)
+    
+# =============================================================================
 # this function assumes the input dataframe is fresh from db
 #    with 3 columns: 'DateTime', 'User', 'Action'
 # - will split it into 2 groups - In and Out
@@ -190,9 +230,11 @@ def collectStats (dfThis=None):
     
     userCountsIn = df_In[colNames[1]].value_counts()
     user_daily_checkin = assembleRawStats (df_In, userCountsIn.index)
+    saveUserDailyBadgeTime (user_daily_checkin, "In")
     
     userCountsOut = df_Out[colNames[1]].value_counts()
     user_daily_checkout = assembleRawStats (df_Out, userCountsOut.index, sortAscending=False)      
+    saveUserDailyBadgeTime (user_daily_checkout, "Out")
     
     # save to cache
     _cachedUserStatsIn  = user_daily_checkin.copy()
@@ -338,7 +380,7 @@ _cachedUserStatsOut = []
 
 appLog.logMsg(__name__, appLog._iINFO, "Init...<Ends>")
 
-# Sef test ---
+# Self test ---
 if (__name__ == '__main__'):
     dfDB = loadDataFrameFromDB()
 
@@ -364,3 +406,63 @@ if (__name__ == '__main__'):
         
         exports.export2CSV (dfUsersMedian, expFileName)
 
+#--- Test: exporting the _cache dataframe --- <Begin>
+    if (False):
+#
+# It would be far easier to just deal with In & Out individually
+#        
+        # Extracts the time part from the lists
+        
+        namesIn  = list(map(lambda n: n[0], _cachedUserStatsIn))
+        namesOut = list(map(lambda n: n[0], _cachedUserStatsOut))
+        
+        xIn  = list(map(lambda dude: [dude[2]], _cachedUserStatsIn))
+        xOut = list(map(lambda dude: [dude[2]], _cachedUserStatsOut))
+        
+        dfxIn  = pd.DataFrame(xIn, index=namesIn, columns=['In'])
+        dfxOut = pd.DataFrame(xOut, index=namesOut, columns=['Out'])
+        dfxMerged = pd.merge(dfxIn, dfxOut, 
+                             how='outer',
+                             left_index=True,
+                             right_index=True)
+        
+        # remove NaN from merged dataframe
+    #    dfxMerged.fillna(tm(0,0,0), inplace=True)
+        
+        dudes = dfxMerged.index
+        for eachDude in dudes:
+            print ("name: {0}".format(eachDude))
+            inLen = -1
+            outLen = -1
+            if (type(dfxMerged['In'][eachDude]).__name__ == 'list'):
+                inLen = len( dfxMerged['In'][eachDude] )
+            else:
+                dfxMerged['In'][eachDude] = []
+                
+            if (type(dfxMerged['Out'][eachDude]).__name__ == 'list'):
+                outLen = len( dfxMerged['Out'][eachDude] )
+            else:
+                dfxMerged['Out'][eachDude] = []
+    
+            
+            print ("len of In = {0}, Out = {1}".format(inLen, outLen))
+        
+        
+        
+        
+    #    for eachDude in _cachedUserStatsIn:
+    #        print ( "Dude's name: '{0}', # of Badged In: {1}".format(eachDude[0],
+    #                                                                len(eachDude[2])) )
+    #        
+    #        
+    #        exports.export2CSV(pd.DataFrame(eachDude[2]), "Badged--{0}--In.csv".format(eachDude[0]))
+    #    
+    #    for eachDude in _cachedUserStatsOut:
+    #        print ( "Dude's name: '{0}', # of Badged Out: {1}".format(eachDude[0],
+    #                                                                len(eachDude[2])) )
+    #        
+    #        
+    #        exports.export2CSV(pd.DataFrame(eachDude[2]), "Badged--{0}--Out.csv".format(eachDude[0]))
+       
+    
+#--- Test: exporting the _cache dataframe --- <End>
