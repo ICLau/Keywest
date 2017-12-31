@@ -32,7 +32,7 @@ strSelectMAXdateSQL = "select MAX(datestamp) from {0}".format(defaultTableName)
 
 # table = user
 defaultUserTable = 'user'
-strCreateUserTableSQL = """CREATE TABLE `users` (
+strCreateUserTableSQL = """CREATE TABLE IF NOT EXISTS `users` (
                         	`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
                         	`name`	TEXT NOT NULL UNIQUE
                         );"""
@@ -44,7 +44,7 @@ strGetAllUsersSQL = 'SELECT id, name FROM users '
 
 # table = userTimes
 defaultUserTimesTable = 'userTimes'
-strCreateUserTimesTableSQL = """ CREATE TABLE `userTimes` (
+strCreateUserTimesTableSQL = """ CREATE TABLE IF NOT EXISTS `userTimes` (
                             	`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                             	`fk_userid`	INTEGER NOT NULL,
                             	`time_io`	TEXT NOT NULL,
@@ -183,11 +183,16 @@ def recordExist (dbConn, selectSQL):
 # tVar - (tuple) variables to insert (must match the # of ? in strSQL)
 # =============================================================================
 def insertRecord (dbConn, strSQL, tVar):
-#    if (recordExist(dbConn, ))
-    dbCur = dbConn.cursor()
-    dbCur.execute (strSQL, tVar)
-    dbConn.commit()
-    return dbCur.lastrowid
+    try:
+        dbCur = dbConn.cursor()
+        dbCur.execute (strSQL, tVar)
+        dbConn.commit()
+        return dbCur.lastrowid
+    except Error as e:
+        appLog.logMsg(__name__,
+                      appLog._iCRITICAL,
+                      "CRITICAl exception - insertRecord()")
+        print(e)
 
 # =============================================================================
 # specifically check the datetime + user exists in db
@@ -260,14 +265,21 @@ def userExist(dbConn, username):
 def insertUser (dbConn, username):
     assert (username.strip() != '')
     
-    username = username.strip()
-    if not userExist (dbConn, username):
-        return insertRecord (dbConn, strInsertUserSQL, (username,))
-    
-    appLog.logMsg(__name__,
-                  appLog._iDEBUG,
-                  "insertUserRecord() - user '{0}' already exists in db - NOT inserted.".format(username))
-    return None
+    try:
+        username = username.strip()
+        if not userExist (dbConn, username):
+            return insertRecord (dbConn, strInsertUserSQL, (username,))
+        
+        appLog.logMsg(__name__,
+                      appLog._iDEBUG,
+                      "insertUser() - user '{0}' already exists in db - NOT inserted.".format(username))
+        return None
+    except Error as e:
+        appLog.logMsg(__name__,
+                      appLog._iCRITICAL,
+                      "CRITICAl exception - insertUser()")
+        print(e)
+        
 
 # =============================================================================
 #    input arg: username - str
@@ -365,7 +377,7 @@ def fetchAllUserTimes (conn, user, aType=None):
         rows = dbCur.fetchall()
         return rows
     except Error as e:
-        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAL exception - lookupUserTimes()")
+        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAL exception - fetchAllUserTimes()")
         print (e)
     
 # =============================================================================
@@ -393,7 +405,7 @@ def userTimeExist (conn, tVars):
         row = dbCur.fetchone()
         return row
     except Error as e:
-        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAL exception - lookupUserTimes()")
+        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAL exception - userTimeExist()")
         print (e)
         return None
 
@@ -439,7 +451,7 @@ def insertUserTime(conn, tVars):
         return insertRecord (conn, strInsertUserTimeSQL, ttVars)
         
     else:  # userTime already exists in db, do NOT insert again
-        appLog.logMsg(__name__, appLog._iINFO, "insertUserTime() - record already in DB: tVars:({0})".format(tVars))
+        appLog.logMsg(__name__, appLog._iDEBUG, "insertUserTime() - record already in DB: tVars:({0})".format(tVars))
         
     return None
     

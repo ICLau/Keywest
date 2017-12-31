@@ -134,90 +134,85 @@ def BarPlotTime (dfUserMedians):
     # alpha indicates transparency
     plt.axhspan(shadeBegins, shadeEnds, facecolor='0.8', alpha=0.3)
 
-#    plt.subplots_adjust (top=0.9,
-#                         bottom=0.35,
-#                         left=0.1,
-#                         right=0.97,
-#                         hspace=0.2,
-#                         wspace=0.2)      
     
-# --- Test codes <Begins> ---    
-    global tRects, tt_labels, names, mTimeFrom, mTimeTo
-    tRects = rects2
+# --- Test codes <Begins> ---  
+    if (False):
+        global tRects, tt_labels, names, mTimeFrom, mTimeTo
+        tRects = rects2
+        
+        names = (dfUserMedians.index).tolist()
+        mTimeFrom = yTemp.copy()
+        mTimeTo = yTemp2.copy()
+        
+        # find a better way to assemble the tooltip text
+        for i in range(len(names)):
+            tt_labels.append( "{0}\n{1:%I}:{1:%M}{1:%p}\n{2:%I}:{2:%M}{2:%p}".format(names[i],mTimeFrom[i],mTimeTo[i]) )
+        
+        for i, (item, label) in enumerate(zip(tRects, tt_labels)):
+            patch = ax.add_patch(item)
+            annotate = ax.annotate(tt_labels[i], xy=item.get_xy(), xytext=(0, 0),
+                                   textcoords='offset points', color='w', ha='left',
+                                   fontsize=9, bbox=dict(boxstyle='round, pad=.5',
+                                                         fc=(.1, .1, .1, .92),
+                                                         ec=(1., 1., 1.), lw=1,
+                                                         zorder=1))
+        
+            ax.add_patch(patch)
+            patch.set_gid('mypatch_{:03d}'.format(i))
+            annotate.set_gid('mytooltip_{:03d}'.format(i))
     
-    names = (dfUserMedians.index).tolist()
-    mTimeFrom = yTemp.copy()
-    mTimeTo = yTemp2.copy()
+        # Save the figure in a fake file object
+        f = BytesIO()
+        plt.savefig(f, format="svg")
     
-    # find a better way to assemble the tooltip text
-    for i in range(len(names)):
-        tt_labels.append( "{0}\n{1:%I}:{1:%M}{1:%p}\n{2:%I}:{2:%M}{2:%p}".format(names[i],mTimeFrom[i],mTimeTo[i]) )
+        # --- Add interactivity ---
+        
+        # Create XML tree from the SVG file.
+        tree, xmlid = ET.XMLID(f.getvalue())
+        tree.set('onload', 'init(evt)')
     
-    for i, (item, label) in enumerate(zip(tRects, tt_labels)):
-        patch = ax.add_patch(item)
-        annotate = ax.annotate(tt_labels[i], xy=item.get_xy(), xytext=(0, 0),
-                               textcoords='offset points', color='w', ha='left',
-                               fontsize=9, bbox=dict(boxstyle='round, pad=.5',
-                                                     fc=(.1, .1, .1, .92),
-                                                     ec=(1., 1., 1.), lw=1,
-                                                     zorder=1))
+        for i in tRects:
+            # Get the index of the shape
+            index = tRects.index(i)
+            # Hide the tooltips
+            if i._height > 0.:
+                tooltip = xmlid['mytooltip_{:03d}'.format(index)]
+                tooltip.set('visibility', 'hidden')
+                # Assign onmouseover and onmouseout callbacks to patches.
+                mypatch = xmlid['mypatch_{:03d}'.format(index)]
+                mypatch.set('onmouseover', "ShowTooltip(this)")
+                mypatch.set('onmouseout', "HideTooltip(this)")
     
-        ax.add_patch(patch)
-        patch.set_gid('mypatch_{:03d}'.format(i))
-        annotate.set_gid('mytooltip_{:03d}'.format(i))
-
-    # Save the figure in a fake file object
-    f = BytesIO()
-    plt.savefig(f, format="svg")
-
-    # --- Add interactivity ---
-    
-    # Create XML tree from the SVG file.
-    tree, xmlid = ET.XMLID(f.getvalue())
-    tree.set('onload', 'init(evt)')
-
-    for i in tRects:
-        # Get the index of the shape
-        index = tRects.index(i)
-        # Hide the tooltips
-        if i._height > 0.:
-            tooltip = xmlid['mytooltip_{:03d}'.format(index)]
-            tooltip.set('visibility', 'hidden')
-            # Assign onmouseover and onmouseout callbacks to patches.
-            mypatch = xmlid['mypatch_{:03d}'.format(index)]
-            mypatch.set('onmouseover', "ShowTooltip(this)")
-            mypatch.set('onmouseout', "HideTooltip(this)")
-
-    # This is the script defining the ShowTooltip and HideTooltip functions.
-    script = """
-        <script type="text/ecmascript">
-        <![CDATA[
-    
-        function init(evt) {
-            if ( window.svgDocument == null ) {
-                svgDocument = evt.target.ownerDocument;
+        # This is the script defining the ShowTooltip and HideTooltip functions.
+        script = """
+            <script type="text/ecmascript">
+            <![CDATA[
+        
+            function init(evt) {
+                if ( window.svgDocument == null ) {
+                    svgDocument = evt.target.ownerDocument;
+                    }
                 }
-            }
+        
+            function ShowTooltip(obj) {
+                var cur = obj.id.split("_")[1];
+                var tip = svgDocument.getElementById('mytooltip_' + cur);
+                tip.setAttribute('visibility',"visible")
+                }
+        
+            function HideTooltip(obj) {
+                var cur = obj.id.split("_")[1];
+                var tip = svgDocument.getElementById('mytooltip_' + cur);
+                tip.setAttribute('visibility',"hidden")
+                }
+        
+            ]]>
+            </script>
+            """
+         # Insert the script at the top of the file and save it.
+        tree.insert(0, ET.XML(script))
+        ET.ElementTree(tree).write('Employee Median Time-in-out.svg')
     
-        function ShowTooltip(obj) {
-            var cur = obj.id.split("_")[1];
-            var tip = svgDocument.getElementById('mytooltip_' + cur);
-            tip.setAttribute('visibility',"visible")
-            }
-    
-        function HideTooltip(obj) {
-            var cur = obj.id.split("_")[1];
-            var tip = svgDocument.getElementById('mytooltip_' + cur);
-            tip.setAttribute('visibility',"hidden")
-            }
-    
-        ]]>
-        </script>
-        """
-     # Insert the script at the top of the file and save it.
-    tree.insert(0, ET.XML(script))
-    ET.ElementTree(tree).write('Employee Median Time-in-out.svg')
-
 # --- Test codes <Ends> ---    
     fig.tight_layout()
     plt.show()
