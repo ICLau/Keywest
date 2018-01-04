@@ -31,12 +31,6 @@ import appDB
 def timeSlot (timeObj):
     return ( int (timeObj.minute/15) )
 
-#-- test code - should be deleted
-#def grab_data (filename='test3.csv'):
-#    df = pd.read_csv(filename, delimiter = ',', parse_dates=True)
-#    
-#    return df
-
 # =============================================================================
 # input arg:
 #     strDateTime (str representing a datetime - see the format we use to parse it)
@@ -83,6 +77,7 @@ def plotUserTimeDistributions (user):
     if (type(user).__name__ == 'int'):
         userRow = appDB.getUserById(conn, user)
     else:
+        # probably need a case-INsensitive name lookup
         userRow = appDB.getUserByName(conn, user)
     if userRow == None:
         return
@@ -160,9 +155,19 @@ def plotUserTimeDistributions (user):
 
 # =============================================================================
 
-
+import sys
 if (__name__ == '__main__'):
-    plotUserTimeDistributions (5)
-    plotUserTimeDistributions (19)
-    plotUserTimeDistributions('Isaac Lau')
-    plotUserTimeDistributions('Guest Two')
+    
+    print ('len(sys.argv) =', len(sys.argv))
+    print ('sys.argv =', sys.argv) 
+
+    nUsers = len(sys.argv) - 1  # argv[0] is always the name of the module (file) name
+    if (nUsers == 0):    
+        plotUserTimeDistributions (5)
+        plotUserTimeDistributions (19)
+        plotUserTimeDistributions('Isaac Lau')
+        plotUserTimeDistributions('Guest Two')  
+    else:
+        for i in range(nUsers):
+#            print ("calling plotUserTimeDistributions ('{0}')".format(sys.argv[i+1]))
+            plotUserTimeDistributions (sys.argv[i+1])
