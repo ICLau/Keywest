@@ -1,4 +1,4 @@
-# Originally from test.py
+import sys
 import pandas as pd
 import glob
 
@@ -9,7 +9,7 @@ import appDB
 # =============================================================================
 def processInputFile (thisFile):
     df = pd.read_csv(thisFile, delimiter = delim)
-    appLog.logMsg (__name__, appLog._iINFO, "processing '{0}'".format(thisFile))
+    appLog.logMsg (modName, appLog._iINFO, "processing '{0}'".format(thisFile))
     
     #fetch the column names
     cols = df.columns
@@ -17,11 +17,11 @@ def processInputFile (thisFile):
     # create a new dataframe with less columns
     # we are only interested in columns 5,6,7
     df2 = df [[cols[5], cols[6], cols[7]]]
-    appLog.logMsg (__name__, appLog._iINFO, "- # of records read: {0}".format(len(df2)))
+    appLog.logMsg (modName, appLog._iINFO, "- # of records read: {0}".format(len(df2)))
 
 
     df3 = df2[df2[cols[7]].isin([fltrBadgedIn, fltrBadgeOut])]
-    appLog.logMsg (__name__, appLog._iINFO, "- reduced to {0} rows".format(len(df3)))
+    appLog.logMsg (modName, appLog._iINFO, "- reduced to {0} rows".format(len(df3)))
     
     # rename columns
     newCols = ['DateTime', 'User', 'Action']
@@ -38,7 +38,7 @@ def processInputFile (thisFile):
     
     dbConn = appDB.connectBadgeDB ()
     
-    appLog.logMsg (__name__, appLog._iINFO, '*** Writing recs to db...')
+    appLog.logMsg (modName, appLog._iINFO, '*** Writing recs to db...')
     rowsWritten = 0
     maxRow = len (df3)
     for i in range(maxRow):
@@ -51,15 +51,20 @@ def processInputFile (thisFile):
             rowsWritten += 1
 
     
-    appLog.logMsg (__name__, appLog._iINFO, "Finished writing to db!")
-    appLog.logMsg (__name__, appLog._iINFO, "===> rows written to db/rows in dataframe: {0}/{1}".format(rowsWritten, maxRow))
+    appLog.logMsg (modName, appLog._iINFO, "Finished writing to db!")
+    appLog.logMsg (modName, appLog._iINFO, "===> rows written to db/rows in dataframe: {0}/{1}".format(rowsWritten, maxRow))
     
     appDB.disconnectDB (dbConn)
 
 
 # =============================================================================
 # =============================================================================
-
+# Main()
+# =============================================================================
+modName = __name__
+if __name__ == '__main__':
+    modName = "{0}({1})".format(sys.argv[0], __name__)
+    
 sectionName = 'Inputs'
 keyNames = {'inputFilePattern'  : 'inputFilePattern', 
             'delimiter'         : 'delimiter',

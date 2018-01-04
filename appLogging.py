@@ -4,6 +4,7 @@ Created on Mon Dec 18 09:56:27 2017
 
 @author: Isaac
 """
+import sys
 import logging
 import readIni as ini
 from datetime import datetime as dt
@@ -77,6 +78,10 @@ def initLog():
 
 # =============================================================================
 
+modName = __name__
+if (__name__ == '__main__'):
+    modName = "{0}({1})".format(sys.argv[0], __name__)
+
 bOK, sLogLevel = ini.get_sectionKeyValues ("logging", "logLevel")
 if (bOK == True and sLogLevel != None):
     logLevel = logLevelDict[sLogLevel]
@@ -94,8 +99,8 @@ logMsg (__name__, logging.INFO, "LogFile '{0}' ready...".format(logFilename))
 
 if (__name__ == '__main__'):
 
-    logMsg ('[module1]', logging.WARN, "warning message")
-    logMsg ('[module2]', logging.DEBUG, "debug message")
-    logMsg ('[module3]', logging.INFO, "info message")
-    logMsg ('[module4]', logging.CRITICAL, "critical message")
+    logMsg (modName, logging.WARN, "warning message")
+    logMsg (modName, logging.DEBUG, "debug message")
+    logMsg (modName, logging.INFO, "info message")
+    logMsg (modName, logging.CRITICAL, "critical message")
 

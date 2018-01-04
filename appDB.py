@@ -4,7 +4,7 @@ Created on Tue Dec 19 08:53:53 2017
 
 @author: Isaac
 """
-
+import sys
 import sqlite3
 from sqlite3 import Error
 from datetime import datetime as dt
@@ -58,7 +58,7 @@ def disconnectDB (conn):
     global dbConnList
     
     if (conn not in dbConnList):
-        appLog.logMsg (__name__, 
+        appLog.logMsg (modName, 
                        appLog._iCRITICAL, 
                        "!!! calling disconnectDB() with invalid dbConnection")
         #should throw an exception here
@@ -71,7 +71,7 @@ def disconnectDB (conn):
 
     dbCur.close()
     dbConn.close()
-    appLog.logMsg (__name__, 
+    appLog.logMsg (modName, 
                    appLog._iINFO, 
                    "~~ disconnectDB() - connectList length = {0}".format(len(dbConnList)))
     
@@ -85,7 +85,7 @@ def createTable (dbConn, createTableSQL):
         dbCur = dbConn.cursor()
         dbCur.execute (createTableSQL)
     except Error as e:
-        appLog.logMsg(__name__, 
+        appLog.logMsg(modName, 
                       appLog._iCRITICAL,
                       "CRITICAL exception - createTable()")
         print (e)
@@ -96,7 +96,7 @@ def connectDB (dbName):
     global dbConnList
     
     if (len(dbConnList) >= _maxConn):
-        appLog.logMsg (__name__, 
+        appLog.logMsg (modName, 
                        appLog._iCRITICAL, 
                        "!!! max db connections reached [{0}]".format(_maxConn))
         return None
@@ -110,7 +110,7 @@ def connectDB (dbName):
     createTable (dbConn, strCreateUserTableSQL)
     createTable (dbConn, strCreateUserTimesTableSQL)
     
-    appLog.logMsg(__name__,
+    appLog.logMsg(modName,
                   appLog._iINFO,
                   "~~~ db connected ({0})".format(dbName))
     return dbConn
@@ -132,7 +132,7 @@ def selectMINDateTime (dbConn, selectMINDateSQL=strSelectMINdateSQL):
         minDateTime = dt.strptime(sDateTime, '%Y-%m-%d %H:%M:%S')
         return minDateTime
     except Error as e:
-        appLog.logMsg(__name__,
+        appLog.logMsg(modName,
                       appLog._iCRITICAL,
                       "CRITICAl exception - selectMINDateTime()")
         print (e)
@@ -154,7 +154,7 @@ def selectMAXDateTime (dbConn, selectMAXDateSQL=strSelectMAXdateSQL):
         maxDateTime = dt.strptime(sDateTime, '%Y-%m-%d %H:%M:%S')
         return maxDateTime
     except Error as e:
-        appLog.logMsg(__name__,
+        appLog.logMsg(modName,
                       appLog._iCRITICAL,
                       "CRITICAl exception - selectMAXDateTime()")
         print (e)
@@ -171,7 +171,7 @@ def recordExist (dbConn, selectSQL):
         rows = dbCur.fetchone()
         return False if rows == None else True
     except Error as e:
-        appLog.logMsg(__name__,
+        appLog.logMsg(modName,
                       appLog._iCRITICAL,
                       "CRITICAl exception - recordExist()")
         print (e)
@@ -189,7 +189,7 @@ def insertRecord (dbConn, strSQL, tVar):
         dbConn.commit()
         return dbCur.lastrowid
     except Error as e:
-        appLog.logMsg(__name__,
+        appLog.logMsg(modName,
                       appLog._iCRITICAL,
                       "CRITICAl exception - insertRecord()")
         print(e)
@@ -230,7 +230,7 @@ def insertBadgeRecord (dbConn, tVars):
     if not badgeEventExist (dbConn, tVars):
         return insertRecord (dbConn, strInsertBadgeRecSQL, tVars)
 
-    appLog.logMsg(__name__,
+    appLog.logMsg(modName,
                   appLog._iDEBUG,
                   "insertBadgeRecord() -- Badge record {0}/{1} already exists in db - NOT inserted.".format(tVars[0], tVars[1]))
     return 0
@@ -270,12 +270,12 @@ def insertUser (dbConn, username):
         if not userExist (dbConn, username):
             return insertRecord (dbConn, strInsertUserSQL, (username,))
         
-        appLog.logMsg(__name__,
+        appLog.logMsg(modName,
                       appLog._iDEBUG,
                       "insertUser() - user '{0}' already exists in db - NOT inserted.".format(username))
         return None
     except Error as e:
-        appLog.logMsg(__name__,
+        appLog.logMsg(modName,
                       appLog._iCRITICAL,
                       "CRITICAl exception - insertUser()")
         print(e)
@@ -297,7 +297,7 @@ def getUserByName (dbConn, username):
         rows = dbCur.fetchone()
         return rows
     except Error as e:
-        appLog.logMsg(__name__,
+        appLog.logMsg(modName,
                       appLog._iCRITICAL,
                       "CRITICAl exception - getUserByName()")
         print (e)
@@ -318,7 +318,7 @@ def getUserById (dbConn, userId):
         rows = dbCur.fetchone()
         return rows
     except Error as e:
-        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAl exception - getUserById()")
+        appLog.logMsg(modName, appLog._iCRITICAL, "CRITICAl exception - getUserById()")
         print (e)
         return None
 
@@ -377,7 +377,7 @@ def fetchAllUserTimes (conn, user, aType=None):
         rows = dbCur.fetchall()
         return rows
     except Error as e:
-        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAL exception - fetchAllUserTimes()")
+        appLog.logMsg(modName, appLog._iCRITICAL, "CRITICAL exception - fetchAllUserTimes()")
         print (e)
     
 # =============================================================================
@@ -405,7 +405,7 @@ def userTimeExist (conn, tVars):
         row = dbCur.fetchone()
         return row
     except Error as e:
-        appLog.logMsg(__name__, appLog._iCRITICAL, "CRITICAL exception - userTimeExist()")
+        appLog.logMsg(modName, appLog._iCRITICAL, "CRITICAL exception - userTimeExist()")
         print (e)
         return None
 
@@ -438,7 +438,7 @@ def insertUserTime(conn, tVars):
             # didn't find the user
             # if tVars[0] is an ID, we cannot insert a user with ID, need a name!!!
             if (type(tVars[0]).__name__ == 'int'):
-                appLog.logMsg(__name__, appLog._iERROR, "insertUserTime() - userID passed in but User not found in db. tVars[{0}]".format(tVars))
+                appLog.logMsg(modName, appLog._iERROR, "insertUserTime() - userID passed in but User not found in db. tVars[{0}]".format(tVars))
                 return None
             fkId = insertUser (conn, tVars[0])
         else:
@@ -451,7 +451,7 @@ def insertUserTime(conn, tVars):
         return insertRecord (conn, strInsertUserTimeSQL, ttVars)
         
     else:  # userTime already exists in db, do NOT insert again
-        appLog.logMsg(__name__, appLog._iDEBUG, "insertUserTime() - record already in DB: tVars:({0})".format(tVars))
+        appLog.logMsg(modName, appLog._iDEBUG, "insertUserTime() - record already in DB: tVars:({0})".format(tVars))
         
     return None
     
@@ -460,18 +460,9 @@ def insertUserTime(conn, tVars):
 # =============================================================================
 # =============================================================================
 # =============================================================================
-
+modName = __name__
 if (__name__ == '__main__'):
-#    conn = connectDB('DoorAccess.db')
-#    
-#    createTableSQL = """CREATE TABLE IF NOT EXISTS AccessLog (
-#                           datestamp TEXT, 
-#                           user TEXT, 
-#                           action TEXT, 
-#                           PRIMARY KEY (user, datestamp)
-#                        );"""
-#
-#    createTable (conn, createTableSQL)
+    modName = "{0}({1})".format(sys.argv[0], __name__)
 
     conn = connectBadgeDB()
     

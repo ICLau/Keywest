@@ -4,6 +4,7 @@ Created on Thu Nov 23 21:46:51 2017
 
 @author: Isaac
 """
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
@@ -220,6 +221,9 @@ def BarPlotTime (dfUserMedians):
 # =============================================================================
 # main
 # =============================================================================
+modName = __name__
+if (__name__ == '__main__'):
+    modName = "{0}({1})".format(sys.argv[0], __name__)
 
 # initialize some variables
 dbConn = appDB.connectBadgeDB()
@@ -227,10 +231,10 @@ minDate = appDB.selectMINDate(dbConn)
 maxDate = appDB.selectMAXDate(dbConn)
 appDB.disconnectDB(dbConn)
 
-appLog.logMsg (__name__,
+appLog.logMsg (modName,
                appLog._iINFO,
                "minDate = {0}".format(minDate.strftime('%b-%d, %Y')))
-appLog.logMsg (__name__,
+appLog.logMsg (modName,
                appLog._iINFO,
                "maxDate = {0}".format(maxDate.strftime('%b-%d, %Y')))
 
@@ -319,6 +323,7 @@ if (bOK == True and tempStr is not None and tempStr.strip() != ''):
 # =============================================================================
 # self test and diagnostics
 if (__name__ == '__main__'):
+    
     import pandas as pd
 
     users = ['Albert',

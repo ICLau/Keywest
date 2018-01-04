@@ -20,6 +20,7 @@ import numpy as np
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 
+import appLogging as appLog
 import appDB
 
 # =============================================================================
@@ -80,6 +81,8 @@ def plotUserTimeDistributions (user):
         # probably need a case-INsensitive name lookup
         userRow = appDB.getUserByName(conn, user)
     if userRow == None:
+        appLog.logMsg(modName, appLog._iERROR, 
+				"plotUserTimeDistributions() - input argument user '{0}' not found. Distribution plot not rendered.".format(user))
         return
     
     user = userRow[1]
@@ -156,11 +159,11 @@ def plotUserTimeDistributions (user):
 # =============================================================================
 
 import sys
-if (__name__ == '__main__'):
-    
-    print ('len(sys.argv) =', len(sys.argv))
-    print ('sys.argv =', sys.argv) 
 
+modName = __name__
+if (__name__ == '__main__'):
+    modName = "{0}({1})".format(sys.argv[0], __name__)
+    
     nUsers = len(sys.argv) - 1  # argv[0] is always the name of the module (file) name
     if (nUsers == 0):    
         plotUserTimeDistributions (5)
@@ -169,5 +172,4 @@ if (__name__ == '__main__'):
         plotUserTimeDistributions('Guest Two')  
     else:
         for i in range(nUsers):
-#            print ("calling plotUserTimeDistributions ('{0}')".format(sys.argv[i+1]))
             plotUserTimeDistributions (sys.argv[i+1])

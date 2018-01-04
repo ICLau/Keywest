@@ -4,9 +4,8 @@ Created on Sun Nov 12 16:02:32 2017
 
 @author: Isaac
 """
-
+import sys
 import pandas as pd
-import numpy as np
 from datetime import datetime as dt
 from datetime import date as dt2
 from datetime import time as tm
@@ -74,7 +73,7 @@ def breakupDateTime (d):
 ###   - median time of checkin/checkout (size 1)
 ### 
 def assembleRawStats (dfBadging, userList, sortAscending=True):
-    appLog.logMsg(__name__, appLog._iINFO, "assembleRawStats <Begins>")
+    appLog.logMsg(modName, appLog._iINFO, "assembleRawStats <Begins>")
 
     userBadging = []
     for eachUser in userList:
@@ -103,7 +102,7 @@ def assembleRawStats (dfBadging, userList, sortAscending=True):
         _median_checkin = convSecondsToTimeObj (statistics.median (_timePartInSec))
         userBadging.append ([eachUser, _datePart, _timePart, _timePartInSec, _median_checkin])
 
-    appLog.logMsg(__name__, appLog._iINFO, "assembleRawStats <Ends>")
+    appLog.logMsg(modName, appLog._iINFO, "assembleRawStats <Ends>")
     return userBadging      
 
 # =============================================================================
@@ -149,7 +148,7 @@ def loadDataFrameFromDB():
     
     # Reads everything in from DB into a DataFrame
     df = pd.DataFrame(appDB.readAllBadgeRecords(dbConn))
-    appLog.logMsg(__name__,
+    appLog.logMsg(modName,
                   appLog._iINFO,
                   "# of records read from db = {0}".format(len(df)))
     
@@ -210,7 +209,7 @@ def saveUserDailyBadgeTime(userDailyStats, aTag):
 # =============================================================================
 def collectStats (dfThis=None):
     global _cachedUserStatsIn, _cachedUserStatsOut
-    appLog.logMsg (__name__, appLog._iINFO, "collectStats - <Begins>")
+    appLog.logMsg (modName, appLog._iINFO, "collectStats - <Begins>")
 
     if (dfThis is None and
                 (len(_cachedUserStatsIn) == 0 and len(_cachedUserStatsOut) == 0)):
@@ -240,7 +239,7 @@ def collectStats (dfThis=None):
     _cachedUserStatsIn  = user_daily_checkin.copy()
     _cachedUserStatsOut = user_daily_checkout.copy()
 
-    appLog.logMsg (__name__,
+    appLog.logMsg (modName,
                    appLog._iINFO,
                    "collectStats - <Ends>")
 
@@ -250,7 +249,7 @@ def collectStats (dfThis=None):
 #    returns: dataframe - user median timeIn and timeOut
 # =============================================================================
 def analyzeUsersMedian ():
-    appLog.logMsg (__name__, appLog._iINFO, "analyzeUsersMedian - <Begins>")
+    appLog.logMsg (modName, appLog._iINFO, "analyzeUsersMedian - <Begins>")
     
     imax = len(_cachedUserStatsIn)
     timein_users = [_cachedUserStatsIn[i][0] for i in range(imax)]
@@ -273,7 +272,7 @@ def analyzeUsersMedian ():
     # remove NaN from merged dataframe
     dfMerged.fillna(tm(0,0,0), inplace=True)
     
-    appLog.logMsg (__name__,
+    appLog.logMsg (modName,
                    appLog._iINFO,
                    "analyzeUsersMedian - <Ends>")
     
@@ -284,11 +283,15 @@ def analyzeUsersMedian ():
 # main
 # =============================================================================
 
+modName = __name__
+if (__name__ == '__main__'):
+    modName = "{0}({1})".format(sys.argv[0], __name__)
+
 # Initialize some variables
 # =============================================================================
 # read config.ini
 # =============================================================================
-appLog.logMsg(__name__, appLog._iINFO, "Init...<Begins>")
+appLog.logMsg(modName, appLog._iINFO, "Init...<Begins>")
 
 sectionNames =   {   'Inputs'          : 'Inputs',
                      'Users'           : 'Users',
@@ -378,10 +381,11 @@ colNames = ['DateTime', 'User', 'Action']
 _cachedUserStatsIn = []
 _cachedUserStatsOut = []
 
-appLog.logMsg(__name__, appLog._iINFO, "Init...<Ends>")
+appLog.logMsg(modName, appLog._iINFO, "Init...<Ends>")
 
 # Self test ---
 if (__name__ == '__main__'):
+    
     dfDB = loadDataFrameFromDB()
 
     # remove users that we don't care about
@@ -400,7 +404,7 @@ if (__name__ == '__main__'):
     barplot.BarPlotTime(dfUsersMedian)
 
     if (bExport):
-        appLog.logMsg (__name__,
+        appLog.logMsg (modName,
                    appLog._iINFO,
                    "Exporting 'median' dataframe to '{0}'".format(expFileName))
         

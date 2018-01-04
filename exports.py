@@ -4,6 +4,7 @@ Created on Tue Dec 12 15:05:39 2017
 
 @author: Isaac
 """
+
 import readIni as appIni
 
 expFileName = ''
