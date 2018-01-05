@@ -173,10 +173,19 @@ if (__name__ == '__main__'):
     
     nUsers = len(sys.argv) - 1  # argv[0] is always the name of the module (file) name
     if (nUsers == 0):    
-        plotUserTimeDistributions (5)
-        plotUserTimeDistributions (19)
-        plotUserTimeDistributions('Isaac Lau')
-        plotUserTimeDistributions('Guest Two')  
+        print (""" Usage:
+       python plotUserTimesNPD user1 [,user2 [,...]] [, -export]
+ 
+       user - can be username or userId
+       -export -  to indicate whether an image file should be generated.
+                  User's name will be the filename of the image file.
+
+""")
+        if (False):
+            plotUserTimeDistributions (5)
+            plotUserTimeDistributions (19)
+            plotUserTimeDistributions('Isaac Lau')
+            plotUserTimeDistributions('Guest Two')  
     else:
 #        users = list(map(lambda u: u.strip().upper() != '-EXPORT', argv[1:-1]))
         bExportImage = False
@@ -190,7 +199,7 @@ if (__name__ == '__main__'):
             else:
                 users.append(user)
             
-        print ('# of users:', len(users))
+        print ('# of users requested:', len(users))
         print ('bExportImage =', bExportImage)
 
         for user in users:
