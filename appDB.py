@@ -36,7 +36,7 @@ strCreateUserTableSQL = """CREATE TABLE IF NOT EXISTS `users` (
                         	`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
                         	`name`	TEXT NOT NULL UNIQUE
                         );"""
-strFindUserSQL = "SELECT id, name FROM users WHERE name = '{0}' "
+strFindUserSQL = "SELECT id, name FROM users WHERE name LIKE '{0}' "
 strFindUserByIdSQL = "SELECT id, name FROM users WHERE id = {0} "
 strInsertUserSQL = "INSERT INTO users (name) VALUES (?) "
 strGetAllUsersSQL = 'SELECT id, name FROM users '
