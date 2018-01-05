@@ -185,6 +185,8 @@ if (__name__ == '__main__'):
             user = (sys.argv[i+1]).strip().lower()
             if user == '-export':
                 bExportImage = True
+            elif user.isnumeric():
+                users.append(int(user))
             else:
                 users.append(user)
             
