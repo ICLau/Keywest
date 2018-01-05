@@ -72,7 +72,7 @@ def formatLabel (tSlot, sInOneHr):  # usually it is 4 slots in an hour (15min)
     return "{0}:{1:02}{2}".format(tH, tM, "am" if isAM else "pm")
             
 # =============================================================================
-def plotUserTimeDistributions (user):
+def plotUserTimeDistributions (user, bExportImage = False):
     conn = appDB.connectBadgeDB()
 
     if (type(user).__name__ == 'int'):
@@ -154,8 +154,15 @@ def plotUserTimeDistributions (user):
     fig.tight_layout()
     plt.show()
 #
+    if (bExportImage):
+        fig.savefig("./{0}.png".format(user))
 
 
+# =============================================================================
+# =============================================================================
+#     Main
+# =============================================================================
+#    supported usage flag: '-export'
 # =============================================================================
 
 import sys
@@ -171,5 +178,19 @@ if (__name__ == '__main__'):
         plotUserTimeDistributions('Isaac Lau')
         plotUserTimeDistributions('Guest Two')  
     else:
-        for i in range(nUsers):
-            plotUserTimeDistributions (sys.argv[i+1])
+#        users = list(map(lambda u: u.strip().upper() != '-EXPORT', argv[1:-1]))
+        bExportImage = False
+        users =[]
+        for i in range(len(sys.argv)-1):
+            user = (sys.argv[i+1]).strip().lower()
+            if user == '-export':
+                bExportImage = True
+            else:
+                users.append(user)
+            
+        print ('# of users:', len(users))
+        print ('bExportImage =', bExportImage)
+
+        for user in users:
+            print ('-', user)
+            plotUserTimeDistributions (user, bExportImage)
