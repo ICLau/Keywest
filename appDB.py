@@ -23,7 +23,8 @@ if (bOK == False or doorDB.strip() ==''):
     doorDB = defaultDBName
 
 # table = AccessLog
-strCreateTableSQL = "CREATE TABLE IF NOT EXISTS {0} (datestamp TEXT, user TEXT, action TEXT, PRIMARY KEY (user, datestamp))".format(defaultTableName)
+#strCreateTableSQL = "CREATE TABLE IF NOT EXISTS {0} (datestamp TEXT, user TEXT, action TEXT, PRIMARY KEY (user, datestamp))".format(defaultTableName)
+strCreateTableSQL = "CREATE TABLE IF NOT EXISTS {0} (datestamp TEXT, user TEXT, action TEXT)".format(defaultTableName)
 strCheckDateTimeUserSQL = "SELECT datestamp, user FROM AccessLog WHERE datestamp = '{0}' AND user = '{1}'"
 strInsertBadgeRecSQL = "INSERT INTO AccessLog (datestamp, user, action) VALUES (?, ?, ?) "
 strReadAllRecs = 'SELECT datestamp, user, action FROM {0}'.format(defaultTableName)
