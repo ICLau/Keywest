@@ -142,6 +142,30 @@ def removeUsers (dfThis, exactMatch, containMatch):
     return dfThis
 
 # =============================================================================
+#    dfThis = dataframe - must contain a named column "User" (colNames[1] variable)
+#    a list of users to be renamed (keeping their stats - without treating them 
+#    as new users)
+#    these are stored in the ini file - key/value (oldname/newname)
+#        oldname (key) - case SENSITIVE
+#        newname (value) - case SENSITIVE
+def renameUsers (dfThis):
+    bOK, oldNames = appIni.get_sectionKeys (sectionNames['UserMapping'])
+    if not bOK:
+        return dfThis   # section not defined, we are done
+    elif len(oldNames) == 0:
+        return dfThis   # section defined, but no keys defined
+    
+    newNames = []
+    for oldName in oldNames:
+        bOK, newName = appIni.get_sectionKeyValues (sectionNames['UserMapping'], oldName)
+        if bOK:
+            newNames.append(newName)
+    
+    dfThis[colNames[1]].replace(oldNames, newNames, inplace=True)
+    return dfThis
+    
+    
+# =============================================================================
 def loadDataFrameFromDB():
     dbConn = appDB.connectBadgeDB()
     assert (dbConn != None)
@@ -217,6 +241,11 @@ def collectStats (dfThis=None):
     
     # knocks out the exclude users
     dfThis = removeUsers (dfThis, excludeExactUsers, excludeUsersContain)
+
+    # there are cases we are re-running all/portions of the input feed
+    # where the old username and new username co-exist in the dataframe
+    # where we want to consolidate/preserve the stat for this "renamed" user
+    dfThis = renameUsers (dfThis)
 
     # applies filter to "Action" column
     df_In = dfThis[ dfThis[colNames[2]].isin([fltrBadgedIn]) ]
@@ -295,6 +324,7 @@ appLog.logMsg(modName, appLog._iINFO, "Init...<Begins>")
 
 sectionNames =   {   'Inputs'          : 'Inputs',
                      'Users'           : 'Users',
+                     'UserMapping'     : 'UserMapping',
                      'Exports'         : 'Exports'
                  }
 

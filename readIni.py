@@ -60,6 +60,10 @@ def get_sectionKeys(sName):
     sSection = config[sName]
     sKeys = [k for k in sSection]
 
+    # section defined, but no Keys
+    if (len(sKeys) == 0 ):
+        return False, None
+
     return True, sKeys
 
 # =============================================================================
@@ -87,11 +91,11 @@ if (__name__ == '__main__'):
     print ("get_sectionKeyValues ('input', 'delimitor'): returns:", bSuccess)
     
     bSuccess, kValues = get_sectionKeyValues ('Inputs', 'delimiter')
-    print ("get_sectionKeyValues ('inputs', 'delimiter'): returns:", bSuccess)
+    print ("get_sectionKeyValues ('Inputs', 'delimiter'): returns:", bSuccess)
     print ('=> kValues:', kValues)
     
     bSuccess, kValues = get_sectionKeyValues ('Inputs', 'inputFilePattern')
-    print ("get_sectionKeyValues ('inputs', 'inputFilePattern'): returns:", bSuccess)
+    print ("get_sectionKeyValues ('Inputs', 'inputFilePattern'): returns:", bSuccess)
     print ('=> kValues:', kValues)
     
     bSuccess, kValues = get_sectionKeyValues ('Users', 'exclude')
@@ -106,3 +110,15 @@ if (__name__ == '__main__'):
     sType = type(kValues).__name__
     print ('Type of kValues is "{0}" and b = "{1}"'.format(sType, b))
 
+    bSuccess, userNames = get_sectionKeys ('UserMapping')
+    print ("get_sectionKeys ('UserMapping') - returns: {0}\n\t{1}".format(bSuccess, userNames))
+    if bSuccess:
+        newNames = []
+        for oldname in userNames:
+           bSuccess, newName = get_sectionKeyValues('UserMapping', oldname)
+           newNames.append(newName)
+        
+        print (userNames)
+        print (newNames)
+        
+    
