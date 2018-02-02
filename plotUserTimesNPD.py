@@ -81,6 +81,7 @@ def plotUserTimeDistributions (user, bExportImage = False):
         # probably need a case-INsensitive name lookup
         userRow = appDB.getUserByName(conn, user)
     if userRow == None:
+        appDB.disconnectDB (conn)
         appLog.logMsg(modName, appLog._iERROR, 
 				"plotUserTimeDistributions() - input argument user '{0}' not found. Distribution plot not rendered.".format(user))
         return
@@ -94,6 +95,18 @@ def plotUserTimeDistributions (user, bExportImage = False):
     maxDate = appDB.selectMAXDate(conn)
 
     appDB.disconnectDB (conn)
+    
+    # each set should have more than 10 data points to start making sense
+    meaningfulSize = 10
+    if (len(timeIns) > meaningfulSize and len(timeOuts) > meaningfulSize):
+        drawGraph (user, timeIns, timeOuts, minDate, maxDate, bExportImage)
+    else:
+        appLog.logMsg (modName, appLog._iWARNING,
+                "--- '{0}' (id:{1}) has less than {2} data points... Not generating NPD graph.".format(user, userRow[0], meaningfulSize))
+    
+
+# =============================================================================
+def drawGraph (userDisplayName, timeIns, timeOuts, minDate, maxDate, bExportImage=False, bShowFig=True):
 
     tIns  = list(map(lambda t: t[2], timeIns))
     tOuts = list(map(lambda t: t[2], timeOuts))
@@ -145,17 +158,58 @@ def plotUserTimeDistributions (user, bExportImage = False):
 #
     ax.legend()
 
-    ax.set_title(user + 
+    ax.set_title(userDisplayName + 
                  '\n' +
                  minDate.strftime('%b-%d, %Y') +
                  ' to '+
                  maxDate.strftime('%b-%d, %Y') )
     
     fig.tight_layout()
-    plt.show()
+    if (bShowFig):
+        plt.show()
 #
     if (bExportImage):
-        fig.savefig("./{0}.png".format(user))
+        fig.savefig("./{0}.png".format(userDisplayName))
+
+    plt.close(fig)
+
+# =============================================================================
+def exportAllUserTimeDistributions ():
+    conn = appDB.connectBadgeDB()
+
+    minDate = appDB.selectMINDate(conn)
+    maxDate = appDB.selectMAXDate(conn)
+    
+    users = appDB.fetchAllUsers(conn)
+    print ("# of users fetched: {0}".format(len(users)))
+
+    bExportFig = True
+    bDrawFig = False
+
+    for eachUser in users:
+        # one fetch - bringing back both 'in' & 'out' times
+        timeInOuts = appDB.fetchAllUserTimes(conn, eachUser[0])
+        
+        # separate 'in' & 'out'
+        timeIns  = list(filter(lambda tIn:  tIn[3].lower()  == 'in',  timeInOuts))
+        timeOuts = list(filter(lambda tOut: tOut[3].lower() == 'out', timeInOuts))
+
+        meaningfulSize = 10
+        if ( len(timeIns) <= meaningfulSize or len(timeOuts) <= meaningfulSize ):
+            appLog.logMsg(modName, appLog._iWARNING,
+                "--- '{0}' (id:{1}) has less than {2} data points... Not generating NPD graph.".format(eachUser[1], 
+                                                                                                       eachUser[0], 
+                                                                                                       meaningfulSize))
+            continue
+        
+        appLog.logMsg(modName, appLog._iINFO, 
+				"exportAllUserTimeDistributions() - user '{0}'".format(eachUser[1]))
+        
+        drawGraph (eachUser[1], timeIns, timeOuts, minDate, maxDate, bExportFig, bDrawFig)
+
+           
+    appDB.disconnectDB (conn)
+
 
 
 # =============================================================================
@@ -187,13 +241,15 @@ if (__name__ == '__main__'):
             plotUserTimeDistributions('Isaac Lau')
             plotUserTimeDistributions('Guest Two')  
     else:
-#        users = list(map(lambda u: u.strip().upper() != '-EXPORT', argv[1:-1]))
+        bAllUsers = False
         bExportImage = False
         users =[]
-        for i in range(len(sys.argv)-1):
-            user = (sys.argv[i+1]).strip().lower()
+        for user in sys.argv[1:]:
+            user.strip().lower()
             if user == '-export':
                 bExportImage = True
+            elif user == '-all':
+                bAllUsers = True
             elif user.isnumeric():
                 users.append(int(user))
             else:
@@ -202,6 +258,11 @@ if (__name__ == '__main__'):
         print ('# of users requested:', len(users))
         print ('bExportImage =', bExportImage)
 
-        for user in users:
-            print ('-', user)
-            plotUserTimeDistributions (user, bExportImage)
+        if bAllUsers:
+            print ('Exporting NPD without displaying - for ALL users')
+            exportAllUserTimeDistributions ()
+        else:
+            for user in users:
+                print ('-', user)
+                plotUserTimeDistributions (user, bExportImage)
+
