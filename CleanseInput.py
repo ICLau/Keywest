@@ -8,6 +8,8 @@ import appDB
 
 # =============================================================================
 def processInputFile (thisFile):
+    appLog.logMsg (modName, appLog._iINFO, "processing '{0}".format(thisFile))
+
     # only reads in cols 5,6,7 from input file
     df = pd.read_csv(thisFile, delimiter=delim, usecols=[5,6,7])
     
@@ -15,9 +17,11 @@ def processInputFile (thisFile):
     newCols = ['DateTime', 'User', 'Action']
     df.columns = newCols
     
-    appLog.logMsg (modName, appLog._iINFO, "processing '{0} - # of records read: {1}'".format(thisFile, len(df)))
+    recsRead = len(df)
     df = df[df[newCols[2]].isin([fltrBadgedIn, fltrBadgeOut])]
-    
+    recsInDF = len(df)
+    appLog.logMsg (modName, appLog._iINFO, "...# of records read/reduced to: {0}/{1}'".format(recsRead, recsInDF))
+
     # Extract and shorten the name
     # DON'T do this more than ONCE...
     strPrefix = 'User: '
@@ -28,19 +32,19 @@ def processInputFile (thisFile):
     
     appLog.logMsg (modName, appLog._iINFO, '*** Writing recs to db...')
     rowsWritten = 0
-    maxRow = len (df)
-    for i in range(maxRow):
-        result = appDB.insertBadgeRecord ( dbConn,
-                                          (df.iloc[i][0], 
-                                           df.iloc[i][1],
-                                           df.iloc[i][2])
+
+    for row in df.itertuples():
+        # the 1st element is the row's index value
+        result = appDB.insertBadgeRecord ( dbConn, 
+                                          (row[1], 
+                                           row[2],
+                                           row[3])
                                          )
         if (result > 0) :
-            rowsWritten += 1
+             rowsWritten += 1
 
-    
     appLog.logMsg (modName, appLog._iINFO, "Finished writing to db!")
-    appLog.logMsg (modName, appLog._iINFO, "===> rows written to db/rows in dataframe: {0}/{1}".format(rowsWritten, maxRow))
+    appLog.logMsg (modName, appLog._iINFO, "===> rows written to db/rows in dataframe: {0}/{1}".format(rowsWritten, recsInDF))
     
     appDB.disconnectDB (dbConn)
 

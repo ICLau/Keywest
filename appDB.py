@@ -8,6 +8,7 @@ import sys
 import sqlite3
 from sqlite3 import Error
 from datetime import datetime as dt
+from datetime import date as dt2
 from datetime import time as tm
 
 import readIni as myIni
@@ -48,6 +49,7 @@ defaultUserTimesTable = 'userTimes'
 strCreateUserTimesTableSQL = """ CREATE TABLE IF NOT EXISTS `userTimes` (
                             	`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                             	`fk_userid`	INTEGER NOT NULL,
+                            	`date_io`	TEXT NOT NULL,
                             	`time_io`	TEXT NOT NULL,
                             	`t_type`	TEXT NOT NULL,
                                 FOREIGN KEY (fk_userid) REFERENCES users (id)
@@ -384,8 +386,8 @@ def fetchAllUserTimes (conn, user, aType=None):
 # =============================================================================
 # =============================================================================
 # check to see if a userTime record exist in db
-#  input arg: tVars => tuple (usernameORuserId, strTime, "In")
-#  return: tuple (int:rowId, int:fk_userId, str:time_io, str:t_type)
+#  input arg: tVars => tuple (usernameORuserId, strDate, strTime, "In")
+#  return: tuple (int:rowId, int:fk_userId, str:date, str:time_io, str:t_type)
 #          None if not found or error
 def userTimeExist (conn, tVars):
     user = tVars[0]
@@ -399,7 +401,7 @@ def userTimeExist (conn, tVars):
         return None
 
     userId = userRow[0]
-    strSQL = "SELECT id, fk_userid, time_io, t_type FROM userTimes WHERE fk_userid = {0} AND time_io = '{1}' AND t_type = '{2}' ".format(userId, tVars[1], tVars[2])
+    strSQL = "SELECT id, fk_userid, date_io, time_io, t_type FROM userTimes WHERE fk_userid = {0} AND date_io = '{1}' AND time_io = '{2}' AND t_type = '{3}' ".format(userId, tVars[1], tVars[2], tVars[3])
     try:
         dbCur = conn.cursor()
         dbCur.execute(strSQL)
@@ -412,7 +414,7 @@ def userTimeExist (conn, tVars):
 
 # =============================================================================
 #    input arg
-#        tVars - tuple (int or str:userId, str:strTime, str:aTag)
+#        tVars - tuple (int or str:userId, str:strDate, str:strTime, str:aTag)
 #    return
 #        rowId of inserted record
 #        None if error or NOT inserted (already exists in db)
@@ -423,7 +425,7 @@ def userTimeExist (conn, tVars):
 def insertUserTime(conn, tVars):
     # tVars must be (userId, strTime, "In")
     assert (tVars != None)
-    assert (len(tVars) == 3)
+    assert (len(tVars) == 4)
     
     # check to see if this entry is already in db
     rows = userTimeExist (conn, tVars)
@@ -447,8 +449,8 @@ def insertUserTime(conn, tVars):
         
         # insert userTime record
         # now we have the user_fkId
-        strInsertUserTimeSQL = "INSERT INTO userTimes (fk_userid, time_io, t_type) VALUES (?, ?, ?) "
-        ttVars = (fkId,tVars[1],tVars[2])
+        strInsertUserTimeSQL = "INSERT INTO userTimes (fk_userid, date_io, time_io, t_type) VALUES (?, ?, ?, ?) "
+        ttVars = (fkId,tVars[1],tVars[2],tVars[3])
         return insertRecord (conn, strInsertUserTimeSQL, ttVars)
         
     else:  # userTime already exists in db, do NOT insert again
@@ -456,7 +458,8 @@ def insertUserTime(conn, tVars):
         
     return None
     
-        
+
+
         
 # =============================================================================
 # =============================================================================
@@ -540,21 +543,23 @@ if (__name__ == '__main__'):
         print ('+*'*15)
         tTime = tm(11,11,11)
         sTime = "{0:%H}:{0:%M}:{0:%S}".format(tTime)
+        dDate = dt2(2018, 1, 22)
+        sDate = "{0:%Y}-{0:%m}-{0:%d}".format(dDate)
         userId = 5
         aTag = 'In'
-        tVars = (userId, sTime, aTag)
+        tVars = (userId, sDate, sTime, aTag)
         rowId = insertUserTime(conn, tVars)
         print ("insertUserTime() - {0}, rowId returned = {1}".format(tVars, rowId))
     
         #-- invalid userId
         userId = 50
-        tVars = (userId, sTime, aTag)
+        tVars = (userId, sDate, sTime, aTag)
         rowId = insertUserTime(conn, tVars)
         print ("insertUserTime() - {0}, rowId returned = {1}".format(tVars, rowId))
     
         #-- new user
         username = 'Test Insert userTime'
-        tVars = (username, sTime, aTag)
+        tVars = (username, sDate, sTime, aTag)
         rowId = insertUserTime(conn, tVars)
         print ("insertUserTime() - {0}, rowId returned = {1}".format(tVars, rowId))
     

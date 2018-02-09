@@ -204,6 +204,10 @@ def saveUserDailyBadgeTime(userDailyStats, aTag):
     theNames = list(map(lambda n: n[0].strip(), userDailyStats))
     theTimes  = list(map(lambda dude: [dude[2]], userDailyStats))
     
+    theDates = list(map(lambda dude: [dude[1]], userDailyStats))
+    
+    utTotalInserted = 0
+    utTotalProcessed = 0
     conn = appDB.connectBadgeDB()
     for eachDude in theNames:
         # is this dude already in 'users' table
@@ -217,9 +221,34 @@ def saveUserDailyBadgeTime(userDailyStats, aTag):
         idx = theNames.index(eachDude)
         if (rowid != None and rowid > 0):
             userTimes = theTimes[idx][0]
-            for eachTime in userTimes:
-                appDB.insertUserTime (conn, (rowid, "{0:%H}:{0:%M}:{0:%S}".format(eachTime), aTag))
-        
+            userDates = theDates[idx][0]
+
+            utCountInserted = 0
+            for eachDate, eachTime in zip(userDates, userTimes):
+                bInserted = appDB.insertUserTime (conn,
+                                      (rowid,
+                                       "{0:%Y}-{0:%m}-{0:%d}".format(eachDate),
+                                       "{0:%H}:{0:%M}:{0:%S}".format(eachTime),
+                                       aTag))
+                if (bInserted != None):
+                    utCountInserted += 1
+
+            appLog.logMsg (modName, appLog._iINFO, 
+                           "[{3}] UserTime for {0}, processed: {1}/written: {2}".format(
+                                                                        userRow[1], 
+                                                                        len(userTimes),
+                                                                        utCountInserted, 
+                                                                        aTag) 
+                          )
+            utTotalInserted += utCountInserted
+            utTotalProcessed += len(userTimes)
+            
+    appLog.logMsg(modName, appLog._iINFO, 
+                  "Total [{2}] UserTime records processed: {0}/writtern: {1} ".format(
+                                                  utTotalProcessed, 
+                                                  utTotalInserted,
+                                                  aTag)
+                 )
     appDB.disconnectDB(conn)
     
 # =============================================================================

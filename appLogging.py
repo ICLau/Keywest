@@ -13,9 +13,11 @@ from datetime import datetime as dt
 logFilename = dt.today().strftime('%Y-%m-%d') + '.log'
 bInit = False
 logLevel = logging.INFO     # default at INFO level
-logWarning = None
-logInfo = None
+
 logDebug = None
+logInfo = None
+logWarning = None
+logError = None
 logCritical = None
 
 logFunc = {logging.DEBUG    : logging.debug,
@@ -64,16 +66,11 @@ def initLog():
         global bInit
         bInit = True
 
-    global logWarning
-    logWarning = logging.warning
-    
-    global logInfo
-    logInfo = logging.warning
-    
-    global logDebug
+    global logDebug, logInfo, logWarning, logError, logCritical
     logDebug = logging.debug
-    
-    global logCritical
+    logInfo = logging.info
+    logWarning = logging.warning
+    logError = logging.error
     logCritical = logging.critical
 
 # =============================================================================
