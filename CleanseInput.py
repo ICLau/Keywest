@@ -8,44 +8,32 @@ import appDB
 
 # =============================================================================
 def processInputFile (thisFile):
-    df = pd.read_csv(thisFile, delimiter = delim)
-    appLog.logMsg (modName, appLog._iINFO, "processing '{0}'".format(thisFile))
+    # only reads in cols 5,6,7 from input file
+    df = pd.read_csv(thisFile, delimiter=delim, usecols=[5,6,7])
     
-    #fetch the column names
-    cols = df.columns
-    
-    # create a new dataframe with less columns
-    # we are only interested in columns 5,6,7
-    df2 = df [[cols[5], cols[6], cols[7]]]
-    appLog.logMsg (modName, appLog._iINFO, "- # of records read: {0}".format(len(df2)))
-
-
-    df3 = df2[df2[cols[7]].isin([fltrBadgedIn, fltrBadgeOut])]
-    appLog.logMsg (modName, appLog._iINFO, "- reduced to {0} rows".format(len(df3)))
-    
-    # rename columns
+    # reset col names
     newCols = ['DateTime', 'User', 'Action']
-    df3.columns = newCols
+    df.columns = newCols
     
+    appLog.logMsg (modName, appLog._iINFO, "processing '{0} - # of records read: {1}'".format(thisFile, len(df)))
+    df = df[df[newCols[2]].isin([fltrBadgedIn, fltrBadgeOut])]
     
     # Extract and shorten the name
     # DON'T do this more than ONCE...
     strPrefix = 'User: '
     strSuffix = ', card:'
-    df3.loc[:,(df3.columns[1])] = df3.loc[:,(df3.columns[1])].map(lambda x: x[x.find(strPrefix)+len(strPrefix) : x.find(strSuffix)])
-    #df3[df3.columns[1]] = df3[df3.columns[1]].map ( lambda x: x[x.find(strPrefix)+len(strPrefix) : x.find(strSuffix)] )
-#    print (df3[df3.columns[1]].head())    
+    df['User'] = df['User'].map(lambda x: str(x[x.find(strPrefix)+len(strPrefix) : x.find(strSuffix)]))
     
     dbConn = appDB.connectBadgeDB ()
     
     appLog.logMsg (modName, appLog._iINFO, '*** Writing recs to db...')
     rowsWritten = 0
-    maxRow = len (df3)
+    maxRow = len (df)
     for i in range(maxRow):
         result = appDB.insertBadgeRecord ( dbConn,
-                                          (df3.iloc[i][0], 
-                                           df3.iloc[i][1],
-                                           df3.iloc[i][2])
+                                          (df.iloc[i][0], 
+                                           df.iloc[i][1],
+                                           df.iloc[i][2])
                                          )
         if (result > 0) :
             rowsWritten += 1
